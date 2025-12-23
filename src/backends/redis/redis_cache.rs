@@ -3,13 +3,17 @@
 //! Redis-based distributed cache for warm data storage with persistence.
 
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use redis::aio::ConnectionManager;
 use redis::{AsyncCommands, Client};
 use serde_json;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tracing::{debug, info};
+
+use crate::stats::AtomicCacheStats;
+use crate::traits::CacheBackend;
 
 /// Redis distributed cache with `ConnectionManager` for automatic reconnection
 ///
@@ -20,18 +24,31 @@ use tracing::{debug, info};
 /// - TTL introspection for cache promotion
 /// - Pattern-based key scanning
 pub struct RedisCache {
-    /// Redis connection manager - handles reconnection automatically
     conn_manager: ConnectionManager,
-    /// Hit counter
-    hits: Arc<AtomicU64>,
-    /// Miss counter
-    misses: Arc<AtomicU64>,
-    /// Set counter
-    sets: Arc<AtomicU64>,
+    stats: Arc<AtomicCacheStats>,
 }
 
 impl RedisCache {
     /// Create new Redis cache with `ConnectionManager` for automatic reconnection
+    ///
+    /// # Configuration
+    ///
+    /// Redis connection is configured via `REDIS_URL` environment variable.
+    /// Default: `redis://127.0.0.1:6379`
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use multi_tier_cache::backends::RedisCache;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> anyhow::Result<()> {
+    ///     assert!(std::env::var("REDIS_URL").is_ok());
+    ///
+    ///     let cache = RedisCache::new().await?;
+    ///     Ok(())
+    /// }
+    /// ```
     /// # Errors
     ///
     /// Returns an error if the Redis client cannot be created or connection fails.
@@ -71,10 +88,15 @@ impl RedisCache {
 
         Ok(Self {
             conn_manager,
-            hits: Arc::new(AtomicU64::new(0)),
-            misses: Arc::new(AtomicU64::new(0)),
-            sets: Arc::new(AtomicU64::new(0)),
+            stats: Arc::new(AtomicCacheStats::default()),
         })
+    }
+
+    pub fn from_connection_manager(conn_manager: ConnectionManager) -> Self {
+        Self {
+            conn_manager,
+            stats: Arc::new(AtomicCacheStats::default()),
+        }
     }
 
     /// Scan keys matching a pattern (glob-style: *, ?, [])
@@ -149,12 +171,14 @@ impl RedisCache {
         debug!(count = count, "[Redis] Removed keys in bulk");
         Ok(count)
     }
+
+    /// Get the underlying Redis connection manager.
+    pub fn connection_manager(&self) -> &ConnectionManager {
+        &self.conn_manager
+    }
 }
 
 // ===== Trait Implementations =====
-
-use crate::traits::{CacheBackend, L2CacheBackend};
-use async_trait::async_trait;
 
 /// Implement `CacheBackend` trait for `RedisCache`
 ///
@@ -166,16 +190,53 @@ impl CacheBackend for RedisCache {
 
         if let Ok(json_str) = conn.get::<_, String>(key).await {
             if let Ok(value) = serde_json::from_str(&json_str) {
-                self.hits.fetch_add(1, Ordering::Relaxed);
+                self.stats.hits.fetch_add(1, Ordering::Relaxed);
                 Some(value)
             } else {
-                self.misses.fetch_add(1, Ordering::Relaxed);
+                self.stats.misses.fetch_add(1, Ordering::Relaxed);
                 None
             }
         } else {
-            self.misses.fetch_add(1, Ordering::Relaxed);
+            self.stats.misses.fetch_add(1, Ordering::Relaxed);
             None
         }
+    }
+
+    async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
+        let mut conn = self.conn_manager.clone();
+
+        // Get value
+        let json_str: String = if let Ok(s) = conn.get(key).await {
+            s
+        } else {
+            self.stats.misses.fetch_add(1, Ordering::Relaxed);
+            return None;
+        };
+
+        // Parse JSON
+        let value: serde_json::Value = if let Ok(v) = serde_json::from_str(&json_str) {
+            v
+        } else {
+            self.stats.misses.fetch_add(1, Ordering::Relaxed);
+            return None;
+        };
+
+        // Get TTL (in seconds, -1 = no expiry, -2 = key doesn't exist)
+        let ttl_secs: i64 = redis::cmd("TTL")
+            .arg(key)
+            .query_async(&mut conn)
+            .await
+            .unwrap_or(-1);
+
+        self.stats.hits.fetch_add(1, Ordering::Relaxed);
+
+        let ttl = if ttl_secs > 0 {
+            Some(Duration::from_secs(ttl_secs.unsigned_abs()))
+        } else {
+            None // No expiry or error
+        };
+
+        Some((value, ttl))
     }
 
     async fn set_with_ttl(&self, key: &str, value: serde_json::Value, ttl: Duration) -> Result<()> {
@@ -183,7 +244,7 @@ impl CacheBackend for RedisCache {
         let mut conn = self.conn_manager.clone();
 
         let _: () = conn.set_ex(key, json_str, ttl.as_secs()).await?;
-        self.sets.fetch_add(1, Ordering::Relaxed);
+        self.stats.sets.fetch_add(1, Ordering::Relaxed);
         debug!(key = %key, ttl_secs = %ttl.as_secs(), "[Redis] Cached key with TTL");
         Ok(())
     }
@@ -222,48 +283,5 @@ impl CacheBackend for RedisCache {
 
     fn name(&self) -> &'static str {
         "Redis"
-    }
-}
-
-/// Implement `L2CacheBackend` trait for `RedisCache`
-///
-/// This extends `CacheBackend` with TTL introspection capabilities needed for L2->L1 promotion.
-#[async_trait]
-impl L2CacheBackend for RedisCache {
-    async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
-        let mut conn = self.conn_manager.clone();
-
-        // Get value
-        let json_str: String = if let Ok(s) = conn.get(key).await {
-            s
-        } else {
-            self.misses.fetch_add(1, Ordering::Relaxed);
-            return None;
-        };
-
-        // Parse JSON
-        let value: serde_json::Value = if let Ok(v) = serde_json::from_str(&json_str) {
-            v
-        } else {
-            self.misses.fetch_add(1, Ordering::Relaxed);
-            return None;
-        };
-
-        // Get TTL (in seconds, -1 = no expiry, -2 = key doesn't exist)
-        let ttl_secs: i64 = redis::cmd("TTL")
-            .arg(key)
-            .query_async(&mut conn)
-            .await
-            .unwrap_or(-1);
-
-        self.hits.fetch_add(1, Ordering::Relaxed);
-
-        let ttl = if ttl_secs > 0 {
-            Some(Duration::from_secs(ttl_secs.unsigned_abs()))
-        } else {
-            None // No expiry or error
-        };
-
-        Some((value, ttl))
     }
 }

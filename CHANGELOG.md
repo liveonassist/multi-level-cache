@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 
 - Metrics export (Prometheus format)
+
 ## [0.5.6] - 2025-12-15
 
 ### Added
@@ -21,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Code Quality**: Resolved all `clippy` warnings including `doc_markdown`, `needless_pass_by_value`, and `clone_on_copy`.
 - **Documentation**: Added "Moka Cache (L1) Configuration" section to README.md with usage examples.
-
 
 ## [0.5.5] - 2025-01-06
 
@@ -50,18 +50,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate common anti-patterns that make code look auto-generated. This release focuses entirely on code quality with **zero** functionality changes or breaking changes.
 
 **1. Global State Mutation (Critical)**
+
 - **Eliminated**: Removed `std::env::set_var("REDIS_URL", ...)` from `with_redis_url()` method
 - **Why Bad**: Mutates global state with thread-safety issues, causes data races in tests
 - **Fix**: Added `RedisCache::with_url()` method to pass URL through call chain
 - **Files**: [src/lib.rs](src/lib.rs), [src/backends/redis_cache.rs](src/backends/redis_cache.rs)
 
 **2. Unsafe `.unwrap()` Calls**
+
 - **Eliminated**: 3 production `.unwrap()` calls replaced with safe alternatives
 - **Why Bad**: Panics on errors in production, violates fail-fast principle
 - **Fix**: Changed to `.unwrap_or(Duration::ZERO)` for TTL parsing
 - **Files**: [src/invalidation.rs](src/invalidation.rs:157)
 
 **3. Arc<Atomic\*> Double-Wrapping**
+
 - **Eliminated**: 6 fields changed from `Arc<AtomicU64>` to `AtomicU64`
 - **Why Bad**: Atomic types are already thread-safe, Arc adds unnecessary overhead
 - **Fix**: Direct AtomicU64 usage, custom Clone impl for TierStats
@@ -69,6 +72,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 - **Files**: [src/cache_manager.rs](src/cache_manager.rs:272-277)
 
 **4. Missing Error Context**
+
 - **Added**: Comprehensive error context to all Redis operations using `anyhow::Context`
 - **Why Bad**: Generic errors don't explain what operation failed or with what parameters
 - **Fix**: Added `.context()` with descriptive messages to 15+ Redis operations
@@ -76,6 +80,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 - **Files**: [src/backends/redis_cache.rs](src/backends/redis_cache.rs)
 
 **5. Placeholder Anti-Pattern**
+
 - **Eliminated**: Removed creation of unused L1/L2 cache instances
 - **Why Bad**: Creates objects that are immediately discarded, wastes resources
 - **Fix**: Changed struct fields to `Option<Arc<L1Cache>>` and `Option<Arc<L2Cache>>`
@@ -83,6 +88,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 - **Files**: [src/lib.rs](src/lib.rs), [src/builder.rs](src/builder.rs)
 
 **6. String Allocation Optimization**
+
 - **Reduced**: ~70% reduction in string allocations in hot path
 - **Why Bad**: Creates 3 String allocations per invalidation message (high-frequency operation)
 - **Fix**: Use `&str` instead of `String` in pattern matching, single allocation
@@ -91,6 +97,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 - **Files**: [src/invalidation.rs](src/invalidation.rs:161-186)
 
 **7. Redundant Trait Wrapper Pattern**
+
 - **Eliminated**: ~270 lines of duplicated code across 5 backend implementations
 - **Why Bad**: Inherent methods that just call trait methods add no value, confuse API surface
 - **Fix**: Moved all logic directly into trait implementations
@@ -98,6 +105,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 - **Files**: All 5 files in [src/backends/](src/backends/)
 
 **8. Console Logging (println! → tracing)**
+
 - **Replaced**: All 50+ `println!` statements with structured logging
 - **Why Bad**: println! is not production-ready (no levels, filtering, or structured data)
 - **Fix**:
@@ -111,10 +119,11 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 ### Internal Improvements
 
 **Files Modified (10 total):**
+
 1. [Cargo.toml](Cargo.toml) - Version bump to 0.5.3, added tracing dependency
 2. [src/lib.rs](src/lib.rs) - Global state fix, Option<Arc<T>>, tracing integration
 3. [src/builder.rs](src/builder.rs) - Placeholder elimination, tracing
-4. [src/cache_manager.rs](src/cache_manager.rs) - Arc<Atomic*> removal, custom Clone impl
+4. [src/cache_manager.rs](src/cache_manager.rs) - Arc<Atomic\*> removal, custom Clone impl
 5. [src/invalidation.rs](src/invalidation.rs) - .unwrap() fix, string optimization
 6. [src/backends/moka_cache.rs](src/backends/moka_cache.rs) - Trait refactor, tracing
 7. [src/backends/redis_cache.rs](src/backends/redis_cache.rs) - Error context, with_url() method, trait refactor
@@ -123,9 +132,10 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 10. [src/backends/quickcache_cache.rs](src/backends/quickcache_cache.rs) - Trait refactor, tracing
 
 **Quality Metrics:**
+
 - Global state mutations: 1 → 0 ✅
 - Unsafe `.unwrap()` calls: 3 → 0 ✅
-- Arc<Atomic*> double-wraps: 6 → 0 ✅
+- Arc<Atomic\*> double-wraps: 6 → 0 ✅
 - Placeholder instances: 4 → 0 ✅
 - println! statements: 50+ → 0 ✅
 - Redundant code lines: ~270 eliminated ✅
@@ -135,6 +145,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 ### Backward Compatibility
 
 ✅ **100% Backward Compatible** - Zero breaking changes:
+
 - All public APIs unchanged
 - All 42 existing tests pass
 - New `with_url()` method is additive only
@@ -143,7 +154,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 
 ### Performance Impact
 
-- **Arc<Atomic*> fix**: Small reduction in memory overhead and atomic operations
+- **Arc<Atomic\*> fix**: Small reduction in memory overhead and atomic operations
 - **String allocation fix**: ~70% fewer allocations in invalidation hot path
 - **Trait refactor**: Zero performance impact (monomorphization eliminates indirection)
 - **Error context**: Negligible (only paid on error path)
@@ -154,6 +165,7 @@ Comprehensive refactoring to enforce idiomatic Rust patterns and eliminate commo
 **No migration required** - This is a pure code quality release. Your code continues to work unchanged.
 
 If you were directly calling `L2Cache::new()` and want to use a custom URL:
+
 ```rust
 // Before (still works via env var)
 std::env::set_var("REDIS_URL", "redis://custom:6379");
@@ -182,14 +194,14 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
   - Example: `examples/builtin_backends.rs`
 
 - **MemcachedCache Backend**: Lightweight distributed L2 cache
-  - Feature flag: `backend-memcached`
+  - Feature flag: `memcached`
   - High-performance distributed caching
   - Server statistics via `get_server_stats()`
   - Note: Does not implement `L2CacheBackend` (no TTL introspection)
   - Dependency: `memcache = { version = "0.17", optional = true }`
 
 - **QuickCacheBackend**: Ultra-fast L1 cache optimized for maximum throughput
-  - Feature flag: `backend-quickcache`
+  - Feature flag: `quickcache`
   - Sub-microsecond latency
   - Lock-free design for concurrent access
   - Configurable capacity via `new(max_capacity)`
@@ -223,7 +235,7 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
   - `memcache = { version = "0.17", optional = true }`
   - `quick_cache = { version = "0.6", optional = true }`
   - `parking_lot = { version = "0.12", optional = true }`
-  - New feature flags: `backend-memcached`, `backend-quickcache`
+  - New feature flags: `memcached`, `quickcache`
 
 ### Fixed
 
@@ -364,6 +376,7 @@ if let Some(tier_stats) = cache.cache_manager().get_tier_stats() {
 ## [0.4.1] - 2025-01-05
 
 ### Added
+
 - **Integration Tests** (30 tests with real Redis)
   - Basic L1+L2 cache operations (12 tests)
   - Cross-instance invalidation (8 tests)
@@ -378,6 +391,7 @@ if let Some(tier_stats) = cache.cache_manager().get_tier_stats() {
   - **serialization**: JSON vs typed caching performance, data size impact
 
 ### Fixed
+
 - Fixed doctests compilation errors for examples with external dependencies
 
 ## [0.4.0] - 2025-01-04
@@ -463,6 +477,7 @@ if let Some(tier_stats) = cache.cache_manager().get_tier_stats() {
 ### Use Cases
 
 **Scenario 1: User Profile Update**
+
 ```rust
 // Update user in database
 database.update_user(123, new_data).await?;
@@ -474,6 +489,7 @@ cache_manager.update_cache("user:123", new_data, Some(ttl)).await?;
 ```
 
 **Scenario 2: Bulk Product Updates**
+
 ```rust
 // Update product category in database
 database.update_category(42, new_price).await?;
@@ -483,6 +499,7 @@ cache_manager.invalidate_pattern("product:category:42:*").await?;
 ```
 
 **Scenario 3: Write-Through Caching**
+
 ```rust
 // Compute expensive data
 let report = generate_monthly_report().await?;
@@ -505,6 +522,7 @@ cache_manager.set_with_broadcast(
 ### Breaking Changes
 
 **None** - This release is fully backward compatible:
+
 - New features are opt-in via `new_with_invalidation()` constructor
 - Existing `CacheSystem::new()` and `CacheManager::new()` unchanged
 - All previous APIs continue to work as before
@@ -512,6 +530,7 @@ cache_manager.set_with_broadcast(
 ### Migration Guide
 
 **To enable invalidation:**
+
 ```rust
 // Old (v0.3.x) - Still works!
 let cache = CacheSystem::new().await?;
@@ -615,6 +634,7 @@ cache_manager.invalidate_pattern("user:*").await?;
 **For most users:** No changes required if using `CacheSystem::new()` or `cache_manager()` methods.
 
 **If implementing custom backends:**
+
 ```rust
 // Old (v0.2.x)
 let cache = CacheSystem::new().await?;
@@ -630,6 +650,7 @@ let cache = CacheSystemBuilder::new()
 ```
 
 **Breaking Changes:**
+
 - `CacheManager` struct fields are now trait objects (not breaking if using methods)
 - `CacheManager::new_with_backends()` signature changed to include `streaming_backend` parameter
 
@@ -644,16 +665,19 @@ let cache = CacheSystemBuilder::new()
 ## [0.2.1] - 2025-01-04
 
 ### Changed
+
 - **Metadata**: Added `documentation` field to Cargo.toml pointing to docs.rs
   - Enables automatic documentation link on crates.io page
   - Improves discoverability for users
 
 ### Removed
+
 - Removed internal tracking documents (PROJECT_COMPLETE.md, NEXT_STEPS.md, MIGRATION_SUMMARY.md)
   - These were development artifacts not needed by end users
   - Cleaner package for crates.io publication
 
 ### Internal
+
 - No code changes - metadata and cleanup only
 - Fully backward compatible with 0.2.0
 
@@ -671,10 +695,12 @@ let cache = CacheSystemBuilder::new()
   - **Reduces boilerplate from 40+ lines to 5 lines**
 
 **Examples:**
+
 - `examples/database_caching.rs` - Comprehensive demonstration with multiple types
 - README section "Type-Safe Database Caching" with before/after comparisons
 
 **Dependencies:**
+
 - Added `serde = { version = "1.0", features = ["derive"] }` for trait bounds
 
 ### Documentation
@@ -695,6 +721,7 @@ let cache = CacheSystemBuilder::new()
 ### Breaking Changes
 
 **None** - This is a fully backward compatible release. All existing code continues to work.
+
 - New method is additive only
 - Existing `get_or_compute_with()` unchanged
 - Version bump to 0.2.0 due to new public API (semver minor)
@@ -702,6 +729,7 @@ let cache = CacheSystemBuilder::new()
 ## [0.1.2] - 2025-01-03
 
 ### Changed
+
 - **Documentation**: Significantly improved REDIS_URL configuration documentation
   - Added configuration priority order (programmatic > env var > .env > default)
   - Added use case examples (development, production, Docker, testing)
@@ -710,17 +738,20 @@ let cache = CacheSystemBuilder::new()
   - Better organization with clear headings and code examples
 
 ### Internal
+
 - No code changes - documentation-only release
 - Fully backward compatible with 0.1.1 and 0.1.0
 
 ## [0.1.1] - 2025-01-03
 
 ### Changed
+
 - **Documentation**: Removed RPS column from library comparison table in README
 - **Documentation**: Removed unavailable docs.rs link from Contact section
 - **Documentation**: Fixed GitHub repository URLs to use correct username
 
 ### Internal
+
 - No code changes - documentation-only release
 - Fully backward compatible with 0.1.0
 
@@ -729,12 +760,14 @@ let cache = CacheSystemBuilder::new()
 ### Added
 
 **Core Features:**
+
 - Multi-tier caching architecture with L1 (Moka) and L2 (Redis)
 - Cache stampede protection using DashMap + Mutex request coalescing
 - Automatic L2-to-L1 promotion for frequently accessed data
 - Comprehensive statistics tracking (hit rates, promotions, in-flight requests)
 
 **Cache Strategies:**
+
 - `RealTime` - 10 seconds TTL for fast-changing data
 - `ShortTerm` - 5 minutes TTL for frequently accessed data
 - `MediumTerm` - 1 hour TTL for moderately stable data
@@ -742,11 +775,13 @@ let cache = CacheSystemBuilder::new()
 - `Custom(Duration)` - User-defined TTL
 
 **Redis Streams Support:**
+
 - `publish_to_stream()` - XADD with automatic trimming
 - `read_stream_latest()` - XREVRANGE for latest N entries
 - `read_stream()` - XREAD for blocking/non-blocking consumption
 
 **API Methods:**
+
 - `CacheSystem::new()` - Initialize with default Redis URL
 - `CacheSystem::with_redis_url()` - Initialize with custom URL
 - `CacheManager::get()` - Retrieve from cache (L1 → L2 fallback)
@@ -755,6 +790,7 @@ let cache = CacheSystemBuilder::new()
 - `CacheManager::get_stats()` - Retrieve cache statistics
 
 **Examples:**
+
 - `basic_usage.rs` - Quick start and fundamental operations
 - `stampede_protection.rs` - Demonstrates concurrency handling
 - `redis_streams.rs` - Event streaming patterns
@@ -763,6 +799,7 @@ let cache = CacheSystemBuilder::new()
 - `health_monitoring.rs` - Health checks and statistics
 
 **Documentation:**
+
 - Comprehensive README.md with architecture diagrams
 - Full rustdoc API documentation
 - Migration guides from `cached` and `redis-rs`
@@ -772,6 +809,7 @@ let cache = CacheSystemBuilder::new()
 ### Performance
 
 **Production Metrics** (from source project):
+
 - **Throughput**: 16,829+ requests/second sustained
 - **Latency**: 5.2ms average response time
 - **Cache Hit Rate**: 95% overall (L1: 90%, L2: 75%)
@@ -779,6 +817,7 @@ let cache = CacheSystemBuilder::new()
 - **Success Rate**: 100% (zero failures under load)
 
 **Resource Usage:**
+
 - L1 Cache Capacity: 2,000 entries
 - L2 Redis Connections: Multiplexed async connections
 - Memory Footprint: ~50MB for typical workload

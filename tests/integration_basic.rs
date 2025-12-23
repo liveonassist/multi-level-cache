@@ -35,9 +35,11 @@ async fn test_basic_set_and_get() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -79,9 +81,11 @@ async fn test_l1_cache_hit() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -97,9 +101,11 @@ async fn test_l2_to_l1_promotion() {
 
     // Set directly in L2 (bypass L1)
     cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .set_with_ttl(&key, value.clone(), Duration::from_secs(300))
         .await
         .unwrap_or_else(|_| panic!("Failed to set L2"));
@@ -126,9 +132,11 @@ async fn test_l2_to_l1_promotion() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -185,9 +193,11 @@ async fn test_compute_on_miss() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -226,9 +236,11 @@ async fn test_type_safe_caching() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -274,9 +286,11 @@ async fn test_ttl_expiration() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -321,9 +335,11 @@ async fn test_statistics_tracking() {
 
     // Cleanup
     let _ = cache
-        .l2_cache
-        .as_ref()
-        .unwrap_or_else(|| panic!("L2 cache missing"))
+        .cache_manager()
+        .tiers()
+        .get(1)
+        .expect("L2 cache missing")
+        .backend
         .remove(&key)
         .await;
 }
@@ -374,9 +390,11 @@ async fn test_cache_strategies() {
 
         // Cleanup
         let _ = cache
-            .l2_cache
-            .as_ref()
-            .unwrap_or_else(|| panic!("L2 cache missing"))
+            .cache_manager()
+            .tiers()
+            .get(1)
+            .expect("L2 cache missing")
+            .backend
             .remove(&key)
             .await;
     }

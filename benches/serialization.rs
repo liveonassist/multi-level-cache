@@ -1,10 +1,12 @@
 //! Benchmarks for serialization and type-safe caching
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_tier_cache::{
+    CacheStrategy, CacheSystem, CacheSystemBuilder, backends::redis::RedisCache,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tokio::runtime::Runtime;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +34,11 @@ fn setup_cache() -> (CacheSystem, Runtime) {
         unsafe {
             std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379");
         }
-        CacheSystem::new()
+
+        CacheSystemBuilder::new()
+            .with_l1(Arc::new(moka::future::Cache::new(100)))
+            .with_l2(Arc::new(RedisCache::new().await.unwrap()))
+            .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to create cache system"))
     });

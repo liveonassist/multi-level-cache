@@ -438,18 +438,18 @@ The library includes multiple built-in cache backend implementations beyond the 
 
 #### In-Memory Backends (L1 Tier)
 
-| Backend                   | Feature              | Performance | Eviction              | Use Case                  |
-| ------------------------- | -------------------- | ----------- | --------------------- | ------------------------- |
-| **MokaCache** _(default)_ | Always available     | High        | Automatic (LRU + TTL) | Production workloads      |
-| **DashMapCache**          | Always available     | Medium      | Manual cleanup        | Simple caching, education |
-| **QuickCacheBackend**     | `backend-quickcache` | Very High   | Automatic (LRU)       | Maximum throughput        |
+| Backend                   | Feature          | Performance | Eviction              | Use Case                  |
+| ------------------------- | ---------------- | ----------- | --------------------- | ------------------------- |
+| **MokaCache** _(default)_ | Always available | High        | Automatic (LRU + TTL) | Production workloads      |
+| **DashMapCache**          | Always available | Medium      | Manual cleanup        | Simple caching, education |
+| **QuickCacheBackend**     | `quickcache`     | Very High   | Automatic (LRU)       | Maximum throughput        |
 
 #### Distributed Backends (L2 Tier)
 
-| Backend                    | Feature             | Persistence      | TTL Introspection | Use Case                     |
-| -------------------------- | ------------------- | ---------------- | ----------------- | ---------------------------- |
-| **RedisCache** _(default)_ | Always available    | Yes (disk)       | ✅ Yes            | Production, multi-instance   |
-| **MemcachedCache**         | `backend-memcached` | No (memory only) | ❌ No             | High-performance distributed |
+| Backend                    | Feature          | Persistence      | TTL Introspection | Use Case                     |
+| -------------------------- | ---------------- | ---------------- | ----------------- | ---------------------------- |
+| **RedisCache** _(default)_ | Always available | Yes (disk)       | ✅ Yes            | Production, multi-instance   |
+| **MemcachedCache**         | `memcached`      | No (memory only) | ❌ No             | High-performance distributed |
 
 #### Example: Using DashMapCache as L1
 
@@ -469,7 +469,7 @@ let cache = CacheSystemBuilder::new()
 
 ```toml
 [dependencies]
-multi-tier-cache = { version = "0.5", features = ["backend-quickcache"] }
+multi-tier-cache = { version = "0.5", features = ["quickcache"] }
 ```
 
 ```rust

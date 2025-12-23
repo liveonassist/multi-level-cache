@@ -11,16 +11,20 @@ keywords = ["cache", "redis", "memcached", "multi-tier", "backends"]
 categories = ["caching", "asynchronous", "database"]
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 # Caching
 moka = { version = "0.12", features = ["future"] }
-redis = { version = "0.32", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "0.32", features = ["tokio-comp", "connection-manager"], optional = true }
 memcache = { version = "0.17", optional = true }
 quick_cache = { version = "0.6", optional = true }
 parking_lot = { version = "0.12", optional = true }
 
 # Async runtime
-tokio = { version = "1.28", features = ["sync", "macros", "time"] }
+tokio = { version = "1.28", features = ["sync", "macros", "time", "rt"] }
 futures-util = "0.3"
 
 # Serialization
@@ -38,6 +42,7 @@ async-trait = "0.1"
 
 # Concurrency
 dashmap = "5.5"
+paste = "1.0.15"
 
 [dev-dependencies]
 tokio = { version = "1.28", features = ["full"] }
@@ -47,10 +52,11 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 
 [features]
-default = ["redis-streams"]
+default = []
+redis = ["dep:redis"]
 redis-streams = []
-backend-memcached = ["memcache"]
-backend-quickcache = ["quick_cache", "parking_lot"]
+memcached = ["memcache"]
+quickcache = ["quick_cache", "parking_lot"]
 
 [[bench]]
 name = "cache_operations"
@@ -73,12 +79,7 @@ name = "multi_tier"
 harness = false
 
 [lints.clippy]
-
 pedantic = "warn"
-
-
 unwrap_used = "warn"
-
 expect_used = "warn"
-
-indexing_slicing = "warn" 
+indexing_slicing = "warn"

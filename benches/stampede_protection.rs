@@ -1,7 +1,8 @@
 //! Benchmarks for cache stampede protection
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_tier_cache::backends::redis::RedisCache;
+use multi_tier_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,7 +16,11 @@ fn setup_cache() -> (CacheSystem, Runtime) {
         unsafe {
             std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379");
         }
-        CacheSystem::new()
+
+        CacheSystemBuilder::new()
+            .with_l1(Arc::new(moka::future::Cache::new(100)))
+            .with_l2(Arc::new(RedisCache::new().await.unwrap()))
+            .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to create cache system"))
     });

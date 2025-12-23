@@ -1,7 +1,8 @@
 //! Benchmarks for multi-tier cache operations (v0.5.0+)
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use multi_tier_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder, L2Cache, TierConfig};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use multi_tier_cache::backends::redis::RedisCache;
+use multi_tier_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder, TierConfig};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -21,12 +22,12 @@ fn test_data(size_bytes: usize) -> serde_json::Value {
 fn build_2tier_cache(rt: &Runtime) -> CacheSystem {
     rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
@@ -44,17 +45,17 @@ fn build_2tier_cache(rt: &Runtime) -> CacheSystem {
 fn build_3tier_cache(rt: &Runtime) -> CacheSystem {
     rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
@@ -73,22 +74,22 @@ fn build_3tier_cache(rt: &Runtime) -> CacheSystem {
 fn build_4tier_cache(rt: &Runtime) -> CacheSystem {
     rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
         let l4 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L4")),
         );
@@ -170,17 +171,17 @@ fn bench_multi_tier_read(c: &mut Criterion) {
 
     let cache = rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
@@ -233,17 +234,17 @@ fn bench_ttl_scaling(c: &mut Criterion) {
     // Without scaling (all 1.0x)
     let cache_no_scale = rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
@@ -273,22 +274,22 @@ fn bench_ttl_scaling(c: &mut Criterion) {
     // With scaling (L3 = 2x, L4 = 8x)
     let cache_with_scale = rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
         let l4 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L4")),
         );
@@ -325,17 +326,17 @@ fn bench_data_size_multi_tier(c: &mut Criterion) {
 
     let cache = rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
@@ -386,17 +387,17 @@ fn bench_tier_stats(c: &mut Criterion) {
 
     let cache = rt.block_on(async {
         let l1 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
         let l3 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L3")),
         );
