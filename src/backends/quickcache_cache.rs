@@ -3,13 +3,16 @@
 //! Lightweight and extremely fast in-memory cache optimized for maximum performance.
 
 use anyhow::Result;
+use async_trait::async_trait;
 use parking_lot::RwLock;
 use quick_cache::sync::Cache;
 use serde_json;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tracing::{debug, info};
+
+use crate::CacheBackend;
 
 /// Cache entry with TTL information
 #[derive(Debug, Clone)]
@@ -101,9 +104,6 @@ impl QuickCacheBackend {
 
 // ===== Trait Implementations =====
 
-use crate::traits::CacheBackend;
-use async_trait::async_trait;
-
 /// Implement `CacheBackend` trait for `QuickCacheBackend`
 ///
 /// This allows `QuickCacheBackend` to be used as a pluggable backend in the multi-tier cache system.
@@ -121,6 +121,25 @@ impl CacheBackend for QuickCacheBackend {
             } else {
                 self.hits.fetch_add(1, Ordering::Relaxed);
                 Some(entry.value.clone())
+            }
+        } else {
+            self.misses.fetch_add(1, Ordering::Relaxed);
+            None
+        }
+    }
+
+    async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
+        if let Some(entry_lock) = self.cache.get(key) {
+            let entry = entry_lock.read();
+            if entry.is_expired() {
+                drop(entry);
+                self.cache.remove(key);
+                self.misses.fetch_add(1, Ordering::Relaxed);
+                None
+            } else {
+                self.hits.fetch_add(1, Ordering::Relaxed);
+                let ttl = entry.expires_at.checked_duration_since(Instant::now());
+                Some((entry.value.clone(), ttl))
             }
         } else {
             self.misses.fetch_add(1, Ordering::Relaxed);

@@ -1,6 +1,8 @@
 //! Integration tests for multi-tier cache architecture (v0.5.0+)
 
-use multi_tier_cache::{CacheBackend, CacheStrategy, CacheSystemBuilder, L2Cache, TierConfig};
+use multi_tier_cache::{
+    CacheBackend, CacheStrategy, CacheSystemBuilder, TierConfig, backends::redis::RedisCache,
+};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,17 +17,17 @@ async fn test_multi_tier_basic_operations() {
     // Note: In production, L1 would be Moka-based, but for multi-tier mode,
     // all backends must implement L2CacheBackend for TTL support
     let l1 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
     let l3 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L3")),
     );
@@ -77,17 +79,17 @@ async fn test_multi_tier_basic_operations() {
 #[tokio::test]
 async fn test_multi_tier_stats() {
     let l1 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
     let l3 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L3")),
     );
@@ -186,17 +188,17 @@ async fn test_backward_compatibility_legacy_mode() {
 #[tokio::test]
 async fn test_multi_tier_ttl_scaling() {
     let l1 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
     let l3 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L3")),
     );
@@ -241,12 +243,12 @@ async fn test_multi_tier_ttl_scaling() {
 #[tokio::test]
 async fn test_multi_tier_cache_miss() {
     let l1 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
@@ -278,22 +280,22 @@ async fn test_multi_tier_cache_miss() {
 #[tokio::test]
 async fn test_convenience_methods() {
     let l1_backend = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2_backend = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
     let l3_backend = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L3")),
     );
     let l4_backend = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L4")),
     );
@@ -337,17 +339,17 @@ async fn test_multi_tier_stampede_protection() {
     use tokio::task::JoinSet;
 
     let l1 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
     let l3 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L3")),
     );
@@ -415,17 +417,17 @@ async fn test_stampede_retrieves_from_l3() {
     use tokio::task::JoinSet;
 
     let l1 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L1")),
     );
     let l2 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L2")),
     );
     let l3 = Arc::new(
-        L2Cache::new()
+        RedisCache::new()
             .await
             .unwrap_or_else(|_| panic!("Failed to create L3")),
     );

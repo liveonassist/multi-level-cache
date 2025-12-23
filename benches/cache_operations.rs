@@ -8,9 +8,11 @@
 //! - Different data sizes
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use multi_tier_cache::{CacheBackend, CacheStrategy, CacheSystem};
+use multi_tier_cache::{
+    CacheStrategy, CacheSystem, CacheSystemBuilder, backends::redis::RedisCache,
+};
 use serde_json::json;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tokio::runtime::Runtime;
 
 /// Setup cache system for benchmarks
@@ -22,7 +24,11 @@ fn setup_cache() -> (CacheSystem, Runtime) {
         unsafe {
             std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379");
         }
-        CacheSystem::new()
+
+        CacheSystemBuilder::new()
+            .with_l1(Arc::new(moka::future::Cache::new(100)))
+            .with_l2(Arc::new(RedisCache::new().await.unwrap()))
+            .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to create cache system"))
     });
@@ -125,8 +131,9 @@ fn bench_l2_hit(c: &mut Criterion) {
     rt.block_on(async {
         for i in 0..100 {
             let key = format!("bench:l2:{i}");
-            if let Some(l2) = &cache.l2_cache {
-                l2.set_with_ttl(&key, test_data(1024), Duration::from_secs(300))
+            if let Some(tier) = cache.cache_manager().tiers().get(1) {
+                tier.backend
+                    .set_with_ttl(&key, test_data(1024), Duration::from_secs(300))
                     .await
                     .unwrap_or_else(|_| panic!("Failed to set cache"));
             }
@@ -138,8 +145,9 @@ fn bench_l2_hit(c: &mut Criterion) {
             rt.block_on(async {
                 let key = format!("bench:l2:{}", rand::random::<u8>() % 100);
                 // Clear L1 to force L2 access
-                if let Some(l1) = &cache.l1_cache {
-                    l1.remove(&key)
+                if let Some(tier) = cache.cache_manager().tiers().get(0) {
+                    tier.backend
+                        .remove(&key)
                         .await
                         .unwrap_or_else(|_| panic!("Failed to remove from L1"));
                 }

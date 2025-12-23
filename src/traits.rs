@@ -8,6 +8,8 @@
 //! - `CacheBackend`: Core trait for all cache implementations
 //! - `L2CacheBackend`: Extended trait for L2 caches with TTL introspection
 //! - `StreamingBackend`: Optional trait for event streaming capabilities
+//! - `InvalidationPublisher`: Trait for publishing cache invalidation messages
+//! - `InvalidationSubscriber`: Trait for subscribing to invalidation messages
 //!
 //! # Example: Custom L1 Backend
 //!
@@ -44,6 +46,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json;
 use std::time::Duration;
+
+use crate::invalidation::InvalidationMessage;
 
 /// Core cache backend trait for both L1 and L2 caches
 ///
@@ -83,6 +87,27 @@ pub trait CacheBackend: Send + Sync {
     /// * `Some(value)` - Value found in cache
     /// * `None` - Key not found or expired
     async fn get(&self, key: &str) -> Option<serde_json::Value>;
+
+    /// Get value with its remaining TTL from cache
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The cache key to retrieve
+    ///
+    /// # Returns
+    ///
+    /// * `Some((value, Some(ttl)))` - Value found with remaining TTL
+    /// * `Some((value, None))` - Value found but no expiration is supported.
+    /// * `None` - Key not found or expired
+    ///
+    /// # TTL Semantics
+    ///
+    /// - TTL represents the **remaining** time until expiration
+    /// - `None` TTL means the key has no expiration
+    /// - Implementations should use backend-specific TTL commands (e.g., Redis TTL)
+    async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
+        self.get(key).await.map(|value| (value, None))
+    }
 
     /// Set value in cache with time-to-live
     ///
@@ -131,57 +156,6 @@ pub trait CacheBackend: Send + Sync {
     fn name(&self) -> &'static str {
         "unknown"
     }
-}
-
-/// Extended trait for L2 cache backends with TTL introspection
-///
-/// This trait extends `CacheBackend` with the ability to retrieve both a value
-/// and its remaining TTL. This is essential for implementing efficient L2-to-L1
-/// promotion with accurate TTL propagation.
-///
-/// # Use Cases
-///
-/// - L2-to-L1 promotion with same TTL
-/// - TTL-based cache warming strategies
-/// - Monitoring and analytics
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use multi_tier_cache::{L2CacheBackend, async_trait};
-///
-/// #[async_trait]
-/// impl L2CacheBackend for MyDistributedCache {
-///     async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
-///         // Retrieve value and calculate remaining TTL
-///         Some((value, Some(remaining_ttl)))
-///     }
-/// }
-/// ```
-#[async_trait]
-pub trait L2CacheBackend: CacheBackend {
-    /// Get value with its remaining TTL from L2 cache
-    ///
-    /// This method retrieves both the value and its remaining time-to-live.
-    /// This is used by the cache manager to promote entries from L2 to L1
-    /// with the correct TTL.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The cache key to retrieve
-    ///
-    /// # Returns
-    ///
-    /// * `Some((value, Some(ttl)))` - Value found with remaining TTL
-    /// * `Some((value, None))` - Value found but no expiration set (never expires)
-    /// * `None` - Key not found or expired
-    ///
-    /// # TTL Semantics
-    ///
-    /// - TTL represents the **remaining** time until expiration
-    /// - `None` TTL means the key has no expiration
-    /// - Implementations should use backend-specific TTL commands (e.g., Redis TTL)
-    async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)>;
 }
 
 /// Optional trait for cache backends that support event streaming
@@ -297,4 +271,29 @@ pub trait StreamingBackend: Send + Sync {
         count: usize,
         block_ms: Option<usize>,
     ) -> Result<Vec<(String, Vec<(String, String)>)>>;
+}
+
+/// Trait for publishing cache invalidation messages
+///
+/// Implement this trait to provide a mechanism for broadcasting
+/// cache invalidation events (e.g., Redis Pub/Sub, NATS, Kafka).
+#[async_trait]
+pub trait InvalidationPublisher: Send + Sync {
+    /// Publish an invalidation message to all subscribers
+    async fn publish(&self, message: &InvalidationMessage) -> Result<()>;
+}
+
+/// Trait for subscribing to invalidation messages
+///
+/// Implement this trait to listen for invalidation events.
+#[async_trait]
+pub trait InvalidationSubscriber: Send + Sync {
+    /// Subscribe to invalidation messages
+    ///
+    /// # Returns
+    ///
+    /// A generic stream or channel receiver is difficult to standardize in object-safe traits.
+    /// We'll use `tokio::sync::broadcast::Receiver` or `mpsc::Receiver`.
+    /// Given the user suggestion, we will return a `mpsc::Receiver`.
+    async fn subscribe(&self) -> Result<tokio::sync::mpsc::Receiver<InvalidationMessage>>;
 }

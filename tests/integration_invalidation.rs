@@ -166,7 +166,7 @@ async fn test_invalidation_stats() {
     // Check stats
     if let Some(stats) = cache.get_invalidation_stats() {
         assert!(
-            stats.messages_sent >= 1,
+            stats.messages_sent() >= 1,
             "Should have sent invalidation messages"
         );
     } else {

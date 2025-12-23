@@ -4,12 +4,15 @@
 //! This is a reference implementation showing how to create custom cache backends.
 
 use anyhow::Result;
+use async_trait::async_trait;
 use dashmap::DashMap;
 use serde_json;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tracing::{debug, info};
+
+use crate::traits::CacheBackend;
 
 /// Cache entry with expiration tracking
 #[derive(Debug, Clone)]
@@ -133,9 +136,6 @@ impl Default for DashMapCache {
 
 // ===== Trait Implementations =====
 
-use crate::traits::CacheBackend;
-use async_trait::async_trait;
-
 /// Implement `CacheBackend` trait for `DashMapCache`
 #[async_trait]
 impl CacheBackend for DashMapCache {
@@ -150,6 +150,26 @@ impl CacheBackend for DashMapCache {
             } else {
                 self.hits.fetch_add(1, Ordering::Relaxed);
                 Some(entry.value.clone())
+            }
+        } else {
+            self.misses.fetch_add(1, Ordering::Relaxed);
+            None
+        }
+    }
+
+    async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
+        if let Some(entry) = self.map.get(key) {
+            if entry.is_expired() {
+                drop(entry);
+                self.map.remove(key);
+                self.misses.fetch_add(1, Ordering::Relaxed);
+                None
+            } else {
+                self.hits.fetch_add(1, Ordering::Relaxed);
+                let ttl = entry
+                    .expires_at
+                    .and_then(|e| e.checked_duration_since(Instant::now()));
+                Some((entry.value.clone(), ttl))
             }
         } else {
             self.misses.fetch_add(1, Ordering::Relaxed);

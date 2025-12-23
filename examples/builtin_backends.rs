@@ -7,11 +7,11 @@
 //! - **L1 (In-Memory)**:
 //!   - `MokaCache` (default) - High-performance with automatic eviction
 //!   - `DashMapCache` - Simple concurrent HashMap-based cache
-//!   - `QuickCacheBackend` - Lightweight, optimized for maximum performance (requires `backend-quickcache` feature)
+//!   - `QuickCacheBackend` - Lightweight, optimized for maximum performance (requires `quickcache` feature)
 //!
 //! L2 (Warm Tier):
 //!   - `RedisCache` (default) - Industry-standard with persistence
-//!   - `MemcachedCache` - Lightweight distributed cache (requires `backend-memcached` feature)
+//!   - `MemcachedCache` - Lightweight distributed cache (requires `memcached` feature)
 //!
 //! Run with:
 //! ```bash
@@ -23,7 +23,8 @@
 //! ```
 
 use anyhow::Result;
-use multi_tier_cache::{CacheBackend, CacheStrategy, CacheSystemBuilder};
+use multi_tier_cache::traits::L2CacheBackend;
+use multi_tier_cache::{CacheBackend, CacheStrategy, CacheSystemBuilder, TierConfig};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -37,39 +38,35 @@ async fn main() -> Result<()> {
     demo_dashmap_backend().await?;
 
     // Example 2: MemcachedCache (L2) - requires feature flag
-    #[cfg(feature = "backend-memcached")]
+    #[cfg(feature = "memcached")]
     {
         println!("\n📦 Example 2: MemcachedCache (L2)");
         println!("──────────────────────────────────\n");
         demo_memcached_backend().await?;
     }
 
-    #[cfg(not(feature = "backend-memcached"))]
+    #[cfg(not(feature = "memcached"))]
     {
         println!("\n📦 Example 2: MemcachedCache (L2)");
         println!("──────────────────────────────────");
-        println!("⚠️  Skipped: Requires 'backend-memcached' feature");
-        println!(
-            "   Run with: cargo run --example builtin_backends --features backend-memcached\n"
-        );
+        println!("⚠️  Skipped: Requires 'memcached' feature");
+        println!("   Run with: cargo run --example builtin_backends --features memcached\n");
     }
 
     // Example 3: QuickCacheBackend (L1) - requires feature flag
-    #[cfg(feature = "backend-quickcache")]
+    #[cfg(feature = "quickcache")]
     {
         println!("\n📦 Example 3: QuickCacheBackend (L1)");
         println!("─────────────────────────────────────\n");
         demo_quickcache_backend().await?;
     }
 
-    #[cfg(not(feature = "backend-quickcache"))]
+    #[cfg(not(feature = "quickcache"))]
     {
         println!("\n📦 Example 3: QuickCacheBackend (L1)");
         println!("─────────────────────────────────────");
-        println!("⚠️  Skipped: Requires 'backend-quickcache' feature");
-        println!(
-            "   Run with: cargo run --example builtin_backends --features backend-quickcache\n"
-        );
+        println!("⚠️  Skipped: Requires 'quickcache' feature");
+        println!("   Run with: cargo run --example builtin_backends --features quickcache\n");
     }
 
     println!("\n✅ Built-in backends example completed!");
@@ -88,7 +85,10 @@ async fn demo_dashmap_backend() -> Result<()> {
 
     // Build cache system with DashMapCache as L1
     let cache = CacheSystemBuilder::new()
-        .with_l1(dashmap_l1.clone() as Arc<dyn CacheBackend>)
+        .with_tier(
+            dashmap_l1.clone() as Arc<dyn L2CacheBackend>,
+            TierConfig::as_l1(),
+        )
         .build()
         .await?;
 
@@ -125,7 +125,7 @@ async fn demo_dashmap_backend() -> Result<()> {
 }
 
 /// Demonstrate `MemcachedCache` standalone usage
-#[cfg(feature = "backend-memcached")]
+#[cfg(feature = "memcached")]
 async fn demo_memcached_backend() -> Result<()> {
     use multi_tier_cache::MemcachedCache;
     use std::time::Duration;
@@ -184,7 +184,9 @@ async fn demo_memcached_backend() -> Result<()> {
 
             println!("\n💡 Note: MemcachedCache implements CacheBackend but not L2CacheBackend");
             println!("   This is because Memcached doesn't support TTL introspection.");
-            println!("   You can use it standalone or wrap it in a custom backend that implements L2CacheBackend.");
+            println!(
+                "   You can use it standalone or wrap it in a custom backend that implements L2CacheBackend."
+            );
         }
         Err(e) => {
             println!("❌ Failed to connect to Memcached: {e}");
@@ -197,7 +199,7 @@ async fn demo_memcached_backend() -> Result<()> {
 }
 
 /// Demonstrate `QuickCacheBackend` as L1 backend
-#[cfg(feature = "backend-quickcache")]
+#[cfg(feature = "quickcache")]
 async fn demo_quickcache_backend() -> Result<()> {
     use multi_tier_cache::QuickCacheBackend;
 
@@ -208,7 +210,10 @@ async fn demo_quickcache_backend() -> Result<()> {
 
     // Build cache system with QuickCache as L1
     let cache = CacheSystemBuilder::new()
-        .with_l1(quickcache_l1.clone() as Arc<dyn CacheBackend>)
+        .with_tier(
+            quickcache_l1.clone() as Arc<dyn L2CacheBackend>,
+            TierConfig::as_l1(),
+        )
         .build()
         .await?;
 

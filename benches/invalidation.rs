@@ -1,36 +1,50 @@
 //! Benchmarks for cache invalidation operations
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use multi_tier_cache::{
-    CacheManager, CacheStrategy, InvalidationConfig, L1Cache, L2Cache, MokaCacheConfig,
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use moka::future::Cache;
+use multi_tier_cache::backends::redis::{
+    RedisInvalidationConfig, RedisInvalidationPublisher, RedisInvalidationSubscriber,
 };
+use multi_tier_cache::invalidation::InvalidationSystem;
+use multi_tier_cache::{CacheStrategy, MokaCache, backends::redis::RedisCache};
+use multi_tier_cache::{CacheSystem, CacheSystemBuilder};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
-fn setup_cache_with_invalidation() -> (Arc<CacheManager>, Runtime) {
+fn setup_cache_with_invalidation() -> (CacheSystem, Runtime) {
     let rt = Runtime::new().unwrap_or_else(|_| panic!("Failed to create runtime"));
     let cache = rt.block_on(async {
         let redis_url =
             std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
         let l1 = Arc::new(
-            L1Cache::new(MokaCacheConfig::default())
+            MokaCache::new(Cache::builder().build())
                 .unwrap_or_else(|_| panic!("Failed to create L1")),
         );
         let l2 = Arc::new(
-            L2Cache::new()
+            RedisCache::new()
                 .await
                 .unwrap_or_else(|_| panic!("Failed to create L2")),
         );
-        let config = InvalidationConfig::default();
 
-        Arc::new(
-            CacheManager::new_with_invalidation(l1, l2, &redis_url, config)
-                .await
-                .unwrap_or_else(|_| panic!("Failed to create cache manager with invalidation")),
-        )
+        let config = RedisInvalidationConfig::default();
+        let publisher =
+            RedisInvalidationPublisher::new(l2.connection_manager().clone(), config.clone());
+        let subscriber = RedisInvalidationSubscriber::new(&redis_url, config.clone())
+            .expect("Failed to create subscriber");
+
+        CacheSystemBuilder::new()
+            .with_l1(l1)
+            .with_l2(l2)
+            .with_invalidation(InvalidationSystem::new(
+                Arc::new(publisher),
+                Arc::new(subscriber),
+            ))
+            .build()
+            .await
+            .expect("Failed to create cache system")
     });
     (cache, rt)
 }
@@ -44,6 +58,7 @@ fn bench_invalidate_single_key(c: &mut Criterion) {
         for i in 0..100 {
             let key = format!("bench:inv:{i}");
             cache
+                .cache_manager()
                 .set_with_strategy(&key, json!({"id": i}), CacheStrategy::MediumTerm)
                 .await
                 .unwrap_or_else(|_| panic!("Failed to set cache"));
@@ -55,6 +70,7 @@ fn bench_invalidate_single_key(c: &mut Criterion) {
             rt.block_on(async {
                 let key = format!("bench:inv:{}", rand::random::<u8>() % 100);
                 let _: () = cache
+                    .cache_manager()
                     .invalidate(&key)
                     .await
                     .unwrap_or_else(|_| panic!("Failed to invalidate"));
@@ -72,6 +88,7 @@ fn bench_update_cache(c: &mut Criterion) {
         for i in 0..100 {
             let key = format!("bench:upd:{i}");
             cache
+                .cache_manager()
                 .set_with_strategy(&key, json!({"id": i}), CacheStrategy::MediumTerm)
                 .await
                 .unwrap_or_else(|_| panic!("Failed to set cache"));
@@ -84,6 +101,7 @@ fn bench_update_cache(c: &mut Criterion) {
                 let key = format!("bench:upd:{}", rand::random::<u8>() % 100);
                 let new_value = json!({"id": 999, "value": "updated"});
                 let _: () = cache
+                    .cache_manager()
                     .update_cache(&key, new_value, Some(Duration::from_secs(300)))
                     .await
                     .unwrap_or_else(|_| panic!("Failed to update"));

@@ -53,32 +53,23 @@
 //!           Return            Promote to L1       Store in L1+L2
 //! ```
 
-use anyhow::Result;
 use std::sync::Arc;
-use tracing::{info, warn};
 
 pub mod backends;
 pub mod builder;
 pub mod cache_manager;
 pub mod invalidation;
-pub mod redis_streams;
+pub mod stats;
 pub mod traits;
 
 // Re-export backend types (maintains backward compatibility)
-pub use backends::{
-    DashMapCache, // Additional backends
-    L1Cache,
-    L2Cache, // Type aliases
-    MokaCache,
-    MokaCacheConfig,
-    RedisCache, // Default backends
-};
+pub use backends::{DashMapCache, MokaCache};
 
 // Optional backends (feature-gated)
-#[cfg(feature = "backend-memcached")]
+#[cfg(feature = "memcached")]
 pub use backends::MemcachedCache;
 
-#[cfg(feature = "backend-quickcache")]
+#[cfg(feature = "quickcache")]
 pub use backends::QuickCacheBackend;
 pub use builder::CacheSystemBuilder;
 pub use cache_manager::{
@@ -90,14 +81,9 @@ pub use cache_manager::{
     TierConfig,
     TierStats,
 };
-pub use invalidation::{
-    InvalidationConfig, InvalidationMessage, InvalidationPublisher, InvalidationStats,
-    InvalidationSubscriber,
-};
-pub use redis_streams::RedisStreams;
-pub use traits::{CacheBackend, L2CacheBackend, StreamingBackend};
+pub use traits::{CacheBackend, InvalidationPublisher, InvalidationSubscriber, StreamingBackend};
 
-// Re-export async_trait for user convenience
+/// Re-export of `async_trait` for convenience.
 pub use async_trait::async_trait;
 
 /// Main entry point for the Multi-Tier Cache system
@@ -129,100 +115,9 @@ pub use async_trait::async_trait;
 pub struct CacheSystem {
     /// Unified cache manager (primary interface)
     pub cache_manager: Arc<CacheManager>,
-    /// L1 Cache (in-memory, Moka) - `None` when using custom backends
-    pub l1_cache: Option<Arc<L1Cache>>,
-    /// L2 Cache (distributed, Redis) - `None` when using custom backends
-    pub l2_cache: Option<Arc<L2Cache>>,
 }
 
 impl CacheSystem {
-    /// Create new cache system with default configuration
-    ///
-    /// # Configuration
-    ///
-    /// Redis connection is configured via `REDIS_URL` environment variable.
-    /// Default: `redis://127.0.0.1:6379`
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use multi_tier_cache::CacheSystem;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> anyhow::Result<()> {
-    ///     // Set environment variable (optional)
-    ///     std::env::set_var("REDIS_URL", "redis://localhost:6379");
-    ///
-    ///     let cache = CacheSystem::new().await?;
-    ///     Ok(())
-    /// }
-    /// ```
-    /// # Errors
-    ///
-    /// Returns an error if cache initialization fails.
-    pub async fn new() -> Result<Self> {
-        info!("Initializing Multi-Tier Cache System");
-
-        // Initialize L1 cache (Moka)
-        let l1_cache = Arc::new(L1Cache::new(MokaCacheConfig::default())?);
-
-        // Initialize L2 cache (Redis)
-        let l2_cache = Arc::new(L2Cache::new().await?);
-
-        // Initialize cache manager
-        let cache_manager = Arc::new(CacheManager::new(l1_cache.clone(), l2_cache.clone()).await?);
-
-        info!("Multi-Tier Cache System initialized successfully");
-
-        Ok(Self {
-            cache_manager,
-            l1_cache: Some(l1_cache),
-            l2_cache: Some(l2_cache),
-        })
-    }
-
-    /// Create cache system with custom Redis URL
-    ///
-    /// # Arguments
-    ///
-    /// * `redis_url` - Redis connection string (e.g., `<redis://localhost:6379>`)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use multi_tier_cache::CacheSystem;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> anyhow::Result<()> {
-    ///     let cache = CacheSystem::with_redis_url("redis://custom:6379").await?;
-    ///     Ok(())
-    /// }
-    /// ```
-    /// # Errors
-    ///
-    /// Returns an error if cache initialization fails.
-    pub async fn with_redis_url(redis_url: &str) -> Result<Self> {
-        info!(redis_url = %redis_url, "Initializing Multi-Tier Cache System with custom Redis URL");
-
-        // Initialize L1 cache (Moka)
-        let l1_cache = Arc::new(L1Cache::new(MokaCacheConfig::default())?);
-
-        // Initialize L2 cache (Redis) with custom URL
-        let l2_cache = Arc::new(L2Cache::with_url(redis_url).await?);
-
-        // Initialize cache manager
-        let cache_manager =
-            Arc::new(CacheManager::new(Arc::clone(&l1_cache), Arc::clone(&l2_cache)).await?);
-
-        info!("Multi-Tier Cache System initialized successfully");
-
-        Ok(Self {
-            cache_manager,
-            l1_cache: Some(l1_cache),
-            l2_cache: Some(l2_cache),
-        })
-    }
-
     /// Perform health check on all cache tiers
     ///
     /// Returns `true` if at least L1 is operational.
@@ -245,23 +140,7 @@ impl CacheSystem {
     /// }
     /// ```
     pub async fn health_check(&self) -> bool {
-        let l1_ok = match &self.l1_cache {
-            Some(cache) => cache.health_check().await,
-            None => true, // If no L1 cache instance, assume OK (using custom backends)
-        };
-
-        let l2_ok = match &self.l2_cache {
-            Some(cache) => cache.health_check().await,
-            None => true, // If no L2 cache instance, assume OK (using custom backends)
-        };
-
-        if l1_ok && l2_ok {
-            info!("Multi-Tier Cache health check passed");
-            true
-        } else {
-            warn!(l1_ok = %l1_ok, l2_ok = %l2_ok, "Multi-Tier Cache health check - partial failure");
-            l1_ok // At minimum, L1 should work
-        }
+        self.cache_manager.health_check().await
     }
 
     /// Get reference to cache manager (primary interface)

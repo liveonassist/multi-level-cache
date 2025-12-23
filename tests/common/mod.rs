@@ -8,7 +8,15 @@
 //! - Test environment setup
 
 use anyhow::Result;
-use multi_tier_cache::{CacheManager, CacheSystem, InvalidationConfig, L1Cache, L2Cache};
+use moka::future::Cache;
+use multi_tier_cache::{
+    CacheManager, CacheSystem, CacheSystemBuilder, MokaCache,
+    backends::redis::{
+        RedisCache, RedisInvalidationConfig, RedisInvalidationPublisher,
+        RedisInvalidationSubscriber,
+    },
+    invalidation::InvalidationSystem,
+};
 use std::sync::Arc;
 
 /// Get Redis URL from environment or use default
@@ -38,26 +46,45 @@ pub async fn setup_cache_system() -> Result<CacheSystem> {
     unsafe {
         std::env::set_var("REDIS_URL", redis_url());
     }
-    CacheSystem::new().await
-}
 
-use multi_tier_cache::backends::MokaCacheConfig;
+    CacheSystemBuilder::new()
+        .with_l1(Arc::new(moka::future::Cache::new(100)))
+        .with_l2(Arc::new(RedisCache::new().await.unwrap()))
+        .build()
+        .await
+}
 
 /// Initialize cache manager with invalidation for testing
 pub async fn setup_cache_with_invalidation() -> Result<Arc<CacheManager>> {
-    let l1 = Arc::new(L1Cache::new(MokaCacheConfig::default())?);
-    let l2 = Arc::new(L2Cache::new().await?);
-    let config = InvalidationConfig::default();
+    let redis_url = redis_url();
 
-    let manager = CacheManager::new_with_invalidation(l1, l2, &redis_url(), config).await?;
+    let l1 = Arc::new(MokaCache::new(Cache::builder().build()).expect("Failed to create L1"));
+    let l2 = Arc::new(RedisCache::new().await.expect("Failed to create L2"));
 
-    Ok(Arc::new(manager))
+    let config = RedisInvalidationConfig::default();
+    let publisher =
+        RedisInvalidationPublisher::new(l2.connection_manager().clone(), config.clone());
+    let subscriber = RedisInvalidationSubscriber::new(&redis_url, config.clone())
+        .expect("Failed to create subscriber");
+
+    let cache = CacheSystemBuilder::new()
+        .with_l1(l1)
+        .with_l2(l2)
+        .with_invalidation(InvalidationSystem::new(
+            Arc::new(publisher),
+            Arc::new(subscriber),
+        ))
+        .build()
+        .await
+        .expect("Failed to create cache system");
+
+    Ok(cache.cache_manager.clone())
 }
 
 /// Cleanup test keys from Redis
 pub async fn cleanup_test_keys(prefix: &str) -> Result<()> {
     let _cache = setup_cache_system().await?;
-    let l2 = Arc::new(L2Cache::new().await?);
+    let l2 = Arc::new(RedisCache::new().await?);
 
     // Find all test keys
     let pattern = format!("{prefix}*");
