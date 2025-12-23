@@ -11,7 +11,7 @@
 //! # Quick Start
 //!
 //! ```rust,no_run
-//! use multi_tier_cache::{CacheSystem, CacheStrategy};
+//! use multi_level_cache::{CacheSystem, CacheStrategy};
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -73,10 +73,10 @@ pub use backends::MemcachedCache;
 pub use backends::QuickCacheBackend;
 pub use builder::CacheSystemBuilder;
 pub use cache_manager::{
+    CacheLevel,
     CacheManager,
     CacheManagerStats,
     CacheStrategy,
-    CacheTier,
     // Multi-tier support (v0.5.0+)
     TierConfig,
     TierStats,
@@ -94,7 +94,7 @@ pub use async_trait::async_trait;
 /// # Example
 ///
 /// ```rust,no_run
-/// use multi_tier_cache::CacheSystem;
+/// use multi_level_cache::CacheSystem;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -126,7 +126,7 @@ impl CacheSystem {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use multi_tier_cache::CacheSystem;
+    /// use multi_level_cache::CacheSystem;
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {

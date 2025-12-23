@@ -9,7 +9,7 @@
 
 use anyhow::Result;
 use moka::future::Cache;
-use multi_tier_cache::{
+use multi_level_cache::{
     CacheManager, CacheSystem, CacheSystemBuilder, MokaCache,
     backends::redis::{
         RedisCache, RedisInvalidationConfig, RedisInvalidationPublisher,

@@ -39,7 +39,7 @@ impl RedisCache {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use multi_tier_cache::backends::RedisCache;
+    /// use multi_level_cache::backends::RedisCache;
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
@@ -112,7 +112,7 @@ impl RedisCache {
     ///
     /// # Examples
     /// ```no_run
-    /// # use multi_tier_cache::backends::RedisCache;
+    /// # use multi_level_cache::backends::RedisCache;
     /// # async fn example() -> anyhow::Result<()> {
     /// # let cache = RedisCache::new().await?;
     /// // Find all user cache keys

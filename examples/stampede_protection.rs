@@ -5,7 +5,7 @@
 //!
 //! Run with: cargo run --example `stampede_protection`
 
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_level_cache::{CacheStrategy, CacheSystem};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -24,7 +24,7 @@ async fn expensive_computation(id: u32) -> anyhow::Result<serde_json::Value> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("=== Multi-Tier Cache: Stampede Protection Demo ===\n");
+    println!("=== Multi-Level Cache: Stampede Protection Demo ===\n");
 
     // Initialize cache system
     let cache = Arc::new(CacheSystem::new().await?);

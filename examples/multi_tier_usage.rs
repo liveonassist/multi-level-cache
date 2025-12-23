@@ -1,3 +1,4 @@
+#![cfg(feature = "redis")]
 //! Multi-Tier Usage Example
 //!
 //! Demonstrates how to configure a 3-tier cache system (L1 + L2 + L3).
@@ -5,7 +6,7 @@
 //! Run with: cargo run --example `multi_tier_usage`
 
 use anyhow::Result;
-use multi_tier_cache::{async_trait, CacheBackend, CacheSystemBuilder, L2CacheBackend};
+use multi_level_cache::{CacheBackend, CacheSystemBuilder, async_trait};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -79,10 +80,7 @@ impl CacheBackend for MockL3Cache {
     fn name(&self) -> &'static str {
         "MockL3"
     }
-}
 
-#[async_trait]
-impl L2CacheBackend for MockL3Cache {
     async fn get_with_ttl(&self, key: &str) -> Option<(Value, Option<Duration>)> {
         // Simulate latency
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -110,24 +108,18 @@ async fn main() -> Result<()> {
     println!("=== Multi-Tier Cache: 3-Tier Architecture Example ===\n");
 
     // 1. Initialize Backends
-    // L1 and L2 will use defaults (Moka and Redis) if we don't provide them,
-    // but here we'll use the builder's convenience methods to set up a 3-tier system.
-    //
-    // For this example, we'll use:
-    // - Tier 1 (L1): Default Moka (In-Memory)
-    // - Tier 2 (L2): Default Redis (Distributed)
-    // - Tier 3 (L3): MockL3Cache (Simulated Cold Storage)
-
-    // Note: We need a Redis instance for L2. If not available, this might fail.
-    // You can use `CacheSystemBuilder::with_tier` to use custom backends for L1/L2 too.
-
+    let moka_l1: Arc<dyn CacheBackend> = Arc::new(multi_level_cache::backends::MokaCache::new(
+        moka::future::Cache::new(10_000),
+    )?);
+    let redis_l2: Arc<dyn CacheBackend> =
+        Arc::new(multi_level_cache::backends::redis::RedisCache::new().await?);
     let l3_backend = Arc::new(MockL3Cache::new("Mock L3 (Disk)"));
 
     println!("Building 3-tier cache system...");
     let cache = CacheSystemBuilder::new()
-        //.with_l1(...) // Optional: Custom L1
-        //.with_l2(...) // Optional: Custom L2
-        .with_l3(l3_backend.clone()) // Add L3 tier (automatically configures as Tier 3)
+        .with_l1(moka_l1)
+        .with_l2(redis_l2)
+        .with_l3(l3_backend.clone()) // Add L3 tier
         .build()
         .await?;
 
@@ -149,7 +141,7 @@ async fn main() -> Result<()> {
         .set_with_strategy(
             "user:123",
             data.clone(),
-            multi_tier_cache::CacheStrategy::ShortTerm,
+            multi_level_cache::CacheStrategy::ShortTerm,
         )
         .await?;
 

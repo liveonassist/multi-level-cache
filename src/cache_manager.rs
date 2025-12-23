@@ -104,7 +104,7 @@ impl TierStats {
 }
 
 /// A single cache tier in the multi-tier architecture
-pub struct CacheTier {
+pub struct CacheLevel {
     /// Cache backend for this tier
     pub backend: Arc<dyn CacheBackend>,
     /// Tier level (1 = hottest/fastest, higher = colder/slower)
@@ -117,7 +117,7 @@ pub struct CacheTier {
     stats: TierStats,
 }
 
-impl CacheTier {
+impl CacheLevel {
     /// Create a new cache tier
     pub fn new(
         backend: Arc<dyn CacheBackend>,
@@ -247,8 +247,8 @@ impl TierConfig {
 /// When `tiers` is Some, it uses the dynamic multi-tier system. Otherwise, falls back to
 /// legacy L1+L2 behavior for backward compatibility.
 pub struct CacheManager {
-    /// Dynamic multi-tier cache architecture
-    tiers: Vec<CacheTier>,
+    /// Dynamic multi-level cache architecture
+    levels: Vec<CacheLevel>,
 
     /// Optional streaming backend (defaults to L2 if it implements `StreamingBackend`)
     streaming_backend: Option<Arc<dyn StreamingBackend>>,
@@ -282,7 +282,7 @@ impl CacheManager {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use multi_tier_cache::{CacheManager, CacheTier, TierConfig, MokaCache, RedisCache};
+    /// use multi_level_cache::{CacheManager, CacheTier, TierConfig, MokaCache, RedisCache};
     /// use std::sync::Arc;
     ///
     /// // L1 + L2 + L3 setup
@@ -296,13 +296,13 @@ impl CacheManager {
     ///     CacheTier::new(l3, 3, true, 2.0),   // L3 - promote to L2&L1, 2x TTL
     /// ];
     ///
-    /// let manager = CacheManager::new_with_tiers(tiers, None).await?;
+    /// let manager = CacheManager::new_with_levels(tiers, None).await?;
     /// ```
     /// # Errors
     ///
     /// Returns an error if tiers are not sorted by level or if no tiers are provided.
-    pub async fn new_with_tiers(
-        tiers: Vec<CacheTier>,
+    pub async fn new_with_levels(
+        tiers: Vec<CacheLevel>,
         invalidation_system: Option<InvalidationSystem>,
         streaming_backend: Option<Arc<dyn StreamingBackend>>,
     ) -> Result<Self> {
@@ -329,7 +329,7 @@ impl CacheManager {
         }
 
         let this = Self {
-            tiers,
+            levels: tiers,
             streaming_backend,
             total_requests: AtomicU64::new(0),
             l1_hits: AtomicU64::new(0),
@@ -352,7 +352,7 @@ impl CacheManager {
                 Ok(mut rx) => {
                     // Collect all tiers to invalidate from
                     let tiers: Vec<Arc<dyn CacheBackend>> =
-                        self.tiers.iter().map(|t| t.backend.clone()).collect();
+                        self.levels.iter().map(|t| t.backend.clone()).collect();
                     let tiers = Arc::new(tiers);
 
                     tokio::spawn(async move {
@@ -408,7 +408,7 @@ impl CacheManager {
     /// Perform health check on all cache tiers
     pub async fn health_check(&self) -> bool {
         let mut all_healthy = true;
-        for tier in &self.tiers {
+        for tier in &self.levels {
             if !tier.backend.health_check().await {
                 warn!(tier = tier.tier_level, "Cache tier unhealthy");
                 all_healthy = false;
@@ -420,7 +420,7 @@ impl CacheManager {
         // Return true if at least one tier works? Or strictly all?
         // Legacy behavior: "partial failure handled gracefully", returning true if L1 works.
         // Let's return true if the first tier (L1) works, or if all work.
-        if let Some(l1) = self.tiers.first() {
+        if let Some(l1) = self.levels.first() {
             l1.backend.health_check().await
         } else {
             false
@@ -433,7 +433,7 @@ impl CacheManager {
         let key = key.to_string();
 
         // Try each tier sequentially
-        for (tier_index, tier) in self.tiers.iter().enumerate() {
+        for (tier_index, tier) in self.levels.iter().enumerate() {
             if let Some((value, ttl)) = tier.get_with_ttl(&key).await {
                 // Cache hit!
                 tier.record_hit();
@@ -452,7 +452,7 @@ impl CacheManager {
                     // Promo logic: promote to all upper tiers
                     self.promotions.fetch_add(1, Ordering::Relaxed);
                     // Iterate tiers above this one
-                    for upper_tier in self.tiers.iter().take(tier_index).rev() {
+                    for upper_tier in self.levels.iter().take(tier_index).rev() {
                         if let Err(e) = upper_tier
                             .set_with_ttl(&key, value.clone(), promotion_ttl)
                             .await
@@ -512,7 +512,7 @@ impl CacheManager {
         let mut success_count = 0;
         let mut last_error = None;
 
-        for tier in &self.tiers {
+        for tier in &self.levels {
             match tier.set_with_ttl(key, value.clone(), ttl).await {
                 Ok(()) => {
                     success_count += 1;
@@ -529,10 +529,10 @@ impl CacheManager {
 
         if success_count > 0 {
             debug!(
-                "[Multi-Tier] Cached '{}' in {}/{} tiers (base TTL: {:?})",
+                "[Multi-Level] Cached '{}' in {}/{} tiers (base TTL: {:?})",
                 key,
                 success_count,
-                self.tiers.len(),
+                self.levels.len(),
                 ttl
             );
             return Ok(());
@@ -580,7 +580,7 @@ impl CacheManager {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
 
         // 1. Try first tier (L1) fast path (no locking)
-        if let Some(first_tier) = self.tiers.first() {
+        if let Some(first_tier) = self.levels.first() {
             if let Some((value, _)) = first_tier.get_with_ttl(key).await {
                 first_tier.record_hit();
                 if first_tier.tier_level == 1 {
@@ -607,7 +607,7 @@ impl CacheManager {
         };
 
         // 3. Double-check ALL tiers (another thread might have filled or promoted)
-        for (i, tier) in self.tiers.iter().enumerate() {
+        for (i, tier) in self.levels.iter().enumerate() {
             if let Some((value, ttl)) = tier.get_with_ttl(key).await {
                 tier.record_hit();
                 // Promote to upper tiers if needed
@@ -615,7 +615,7 @@ impl CacheManager {
                     let promotion_ttl = ttl.unwrap_or_else(|| strategy.to_duration());
                     self.promotions.fetch_add(1, Ordering::Relaxed);
 
-                    for upper_tier in self.tiers.iter().take(i).rev() {
+                    for upper_tier in self.levels.iter().take(i).rev() {
                         if let Err(e) = upper_tier
                             .set_with_ttl(key, value.clone(), promotion_ttl)
                             .await
@@ -677,7 +677,7 @@ impl CacheManager {
     /// # Example - Database Query
     ///
     /// ```no_run
-    /// # use multi_tier_cache::{CacheManager, CacheStrategy, L1Cache, L2Cache};
+    /// # use multi_level_cache::{CacheManager, CacheStrategy, L1Cache, L2Cache};
     /// # use std::sync::Arc;
     /// # use serde::{Serialize, Deserialize};
     /// # async fn example() -> anyhow::Result<()> {
@@ -709,7 +709,7 @@ impl CacheManager {
     /// # Example - API Call
     ///
     /// ```no_run
-    /// # use multi_tier_cache::{CacheManager, CacheStrategy, L1Cache, L2Cache};
+    /// # use multi_level_cache::{CacheManager, CacheStrategy, L1Cache, L2Cache};
     /// # use std::sync::Arc;
     /// # use serde::{Serialize, Deserialize};
     /// # async fn example() -> anyhow::Result<()> {
@@ -766,7 +766,7 @@ impl CacheManager {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
 
         // 1. Try first tier (L1) fast path (no locking)
-        if let Some(first_tier) = self.tiers.first() {
+        if let Some(first_tier) = self.levels.first() {
             if let Some((cached_json, _)) = first_tier.get_with_ttl(key).await {
                 first_tier.record_hit();
                 if first_tier.tier_level == 1 {
@@ -813,7 +813,7 @@ impl CacheManager {
 
         // 3. Double-check ALL tiers after acquiring lock
         // (Another request might have populated it while we were waiting)
-        for (i, tier) in self.tiers.iter().enumerate() {
+        for (i, tier) in self.levels.iter().enumerate() {
             if let Some((cached_json, ttl)) = tier.get_with_ttl(key).await {
                 tier.record_hit();
 
@@ -832,7 +832,7 @@ impl CacheManager {
                             let promotion_ttl = ttl.unwrap_or_else(|| strategy.to_duration());
                             self.promotions.fetch_add(1, Ordering::Relaxed);
 
-                            for upper_tier in self.tiers.iter().take(i).rev() {
+                            for upper_tier in self.levels.iter().take(i).rev() {
                                 if let Err(e) = upper_tier
                                     .set_with_ttl(key, cached_json.clone(), promotion_ttl)
                                     .await
@@ -947,7 +947,7 @@ impl CacheManager {
     /// }
     /// ```
     pub fn get_tier_stats(&self) -> Option<Vec<TierStats>> {
-        Some(self.tiers.iter().map(|tier| tier.stats.clone()).collect())
+        Some(self.levels.iter().map(|tier| tier.stats.clone()).collect())
     }
 
     // ===== Redis Streams Methods =====
@@ -1050,7 +1050,7 @@ impl CacheManager {
     /// Returns an error if invalidation fails.
     pub async fn invalidate(&self, key: &str) -> Result<()> {
         // Remove from ALL tiers
-        for tier in &self.tiers {
+        for tier in &self.levels {
             if let Err(e) = tier.remove(key).await {
                 warn!(
                     "Failed to remove '{}' from L{}: {}",
@@ -1105,7 +1105,7 @@ impl CacheManager {
         let ttl = ttl.unwrap_or_else(|| CacheStrategy::Default.to_duration());
 
         // Update ALL tiers with their respective TTL scaling
-        for tier in &self.tiers {
+        for tier in &self.levels {
             if let Err(e) = tier.set_with_ttl(key, value.clone(), ttl).await {
                 warn!("Failed to update '{}' in L{}: {}", key, tier.tier_level, e);
             }
@@ -1224,8 +1224,8 @@ impl CacheManager {
     }
 
     /// Get access to cache tiers (for testing/inspection)
-    pub fn tiers(&self) -> &[CacheTier] {
-        &self.tiers
+    pub fn tiers(&self) -> &[CacheLevel] {
+        &self.levels
     }
 
     fn invalidation_publisher(&self) -> Option<&Arc<dyn InvalidationPublisher>> {

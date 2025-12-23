@@ -2,10 +2,10 @@
 //!
 //! Memcached-based distributed cache for warm data storage with simple key-value operations.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde_json;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tracing::{debug, info};
 
@@ -42,7 +42,7 @@ impl MemcachedCache {
     /// # Example
     ///
     /// ```no_run
-    /// # use multi_tier_cache::backends::MemcachedCache;
+    /// # use multi_level_cache::backends::MemcachedCache;
     /// # async fn example() -> anyhow::Result<()> {
     /// // Set environment variable (optional)
     /// std::env::set_var("MEMCACHED_URL", "memcache://localhost:11211");

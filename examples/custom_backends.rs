@@ -1,3 +1,4 @@
+#![cfg(feature = "redis")]
 //! Example: Custom Cache Backends
 //!
 //! This example demonstrates how to implement custom L1 and L2 cache backends
@@ -6,7 +7,9 @@
 //! Run with: `cargo run --example custom_backends`
 
 use anyhow::Result;
-use multi_tier_cache::{CacheBackend, CacheSystemBuilder, L2CacheBackend, TierConfig, async_trait};
+use multi_level_cache::backends::MokaCache;
+use multi_level_cache::backends::redis::RedisCache;
+use multi_level_cache::{CacheBackend, CacheSystemBuilder, TierConfig, async_trait};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -90,10 +93,7 @@ impl CacheBackend for HashMapCache {
     fn name(&self) -> &'static str {
         "HashMapCache"
     }
-}
 
-#[async_trait]
-impl L2CacheBackend for HashMapCache {
     async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
         let store = self
             .store
@@ -174,10 +174,7 @@ impl CacheBackend for InMemoryL2Cache {
     fn name(&self) -> &'static str {
         "InMemoryL2"
     }
-}
 
-#[async_trait]
-impl L2CacheBackend for InMemoryL2Cache {
     async fn get_with_ttl(&self, key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
         let store = self
             .store
@@ -244,10 +241,7 @@ impl CacheBackend for NoOpCache {
     fn name(&self) -> &'static str {
         "NoOp"
     }
-}
 
-#[async_trait]
-impl L2CacheBackend for NoOpCache {
     async fn get_with_ttl(&self, _key: &str) -> Option<(serde_json::Value, Option<Duration>)> {
         None // Always miss
     }
@@ -267,8 +261,8 @@ async fn main() -> Result<()> {
     let custom_l2 = Arc::new(InMemoryL2Cache::new());
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(custom_l1 as Arc<dyn L2CacheBackend>, TierConfig::as_l1())
-        .with_tier(custom_l2 as Arc<dyn L2CacheBackend>, TierConfig::as_l2())
+        .with_level(custom_l1 as Arc<dyn CacheBackend>, TierConfig::as_l1())
+        .with_level(custom_l2 as Arc<dyn CacheBackend>, TierConfig::as_l2())
         .build()
         .await?;
 
@@ -285,7 +279,7 @@ async fn main() -> Result<()> {
         .set_with_strategy(
             "user:alice",
             test_data.clone(),
-            multi_tier_cache::CacheStrategy::ShortTerm,
+            multi_level_cache::CacheStrategy::ShortTerm,
         )
         .await?;
 
@@ -301,8 +295,8 @@ async fn main() -> Result<()> {
     let noop_l2 = Arc::new(NoOpCache::new("L2"));
 
     let noop_cache = CacheSystemBuilder::new()
-        .with_tier(noop_l1 as Arc<dyn L2CacheBackend>, TierConfig::as_l1())
-        .with_tier(noop_l2 as Arc<dyn L2CacheBackend>, TierConfig::as_l2())
+        .with_level(noop_l1 as Arc<dyn CacheBackend>, TierConfig::as_l1())
+        .with_level(noop_l2 as Arc<dyn CacheBackend>, TierConfig::as_l2())
         .build()
         .await?;
 
@@ -312,7 +306,7 @@ async fn main() -> Result<()> {
         .set_with_strategy(
             "test:key",
             serde_json::json!({"value": "test"}),
-            multi_tier_cache::CacheStrategy::Default,
+            multi_level_cache::CacheStrategy::Default,
         )
         .await?;
 
@@ -326,20 +320,11 @@ async fn main() -> Result<()> {
     println!("──────────────────────────────────────────────\n");
 
     let custom_l1_only = Arc::new(HashMapCache::new("HashMap L1"));
+    let redis_backend = Arc::new(RedisCache::new().await?);
 
     let mixed_cache = CacheSystemBuilder::new()
-        .with_tier(
-            custom_l1_only as Arc<dyn L2CacheBackend>,
-            TierConfig::as_l1(),
-        )
-        // L2 will use default Redis backend (by default build() adds defaults if empty, but mixing custom tiers with default isn't automatic unless we add it explicitly or build logic handles it.
-        // NOTE: The new build() logic ONLY adds defaults if tiers is EMPTY. If we add L1, we MUST add L2 explicitly if we want it.
-        // Original example assumed partial configuration. New API requires explicit tiers if not default.
-        // So we should add a default Redis L2 tier here to match original behavior.
-        .with_tier(
-            Arc::new(multi_tier_cache::RedisCache::new().await?),
-            TierConfig::as_l2(),
-        )
+        .with_level(custom_l1_only as Arc<dyn CacheBackend>, TierConfig::as_l1())
+        .with_level(redis_backend, TierConfig::as_l2())
         .build()
         .await?;
 
@@ -359,7 +344,7 @@ async fn main() -> Result<()> {
     println!("\n✅ Custom backends example completed!");
 
     // Example 4: Custom Tier Configuration (v0.5.0+)
-    println!("\n📦 Example 4: Custom Tier Configuration (using with_tier)");
+    println!("\n📦 Example 4: Custom Tier Configuration (using with_level)");
     println!("──────────────────────────────────────────────────────\n");
 
     // Create a custom L2 backend
@@ -368,15 +353,12 @@ async fn main() -> Result<()> {
     // Configure it as Tier 2 with custom settings
     let tier_config = TierConfig::as_l2().with_promotion(true).with_ttl_scale(1.5); // 1.5x TTL scaling
 
+    let moka_l1 = Arc::new(MokaCache::new(moka::future::Cache::new(10_000))?);
+
     let tiered_cache = CacheSystemBuilder::new()
         // We can mix default L1 with custom L2 tier
-        .with_tier(
-            Arc::new(multi_tier_cache::MokaCache::new(
-                multi_tier_cache::MokaCacheConfig::default(),
-            )?),
-            TierConfig::as_l1(),
-        )
-        .with_tier(custom_l2_tier, tier_config)
+        .with_level(moka_l1, TierConfig::as_l1())
+        .with_level(custom_l2_tier, tier_config)
         .build()
         .await?;
 
@@ -387,7 +369,7 @@ async fn main() -> Result<()> {
         .set_with_strategy(
             "tiered:key",
             serde_json::json!("value"),
-            multi_tier_cache::CacheStrategy::ShortTerm,
+            multi_level_cache::CacheStrategy::ShortTerm,
         )
         .await?;
 

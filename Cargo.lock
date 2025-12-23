@@ -724,7 +724,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "multi-tier-cache"
+name = "multi-level-cache"
 version = "0.1.0"
 dependencies = [
  "anyhow",

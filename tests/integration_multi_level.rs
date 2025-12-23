@@ -1,6 +1,6 @@
-//! Integration tests for multi-tier cache architecture (v0.5.0+)
+//! Integration tests for multi-level cache architecture (v0.5.0+)
 
-use multi_tier_cache::{
+use multi_level_cache::{
     CacheBackend, CacheStrategy, CacheSystemBuilder, TierConfig, backends::redis::RedisCache,
 };
 use serde_json::json;
@@ -33,9 +33,9 @@ async fn test_multi_tier_basic_operations() {
     );
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1, TierConfig::as_l1())
-        .with_tier(l2, TierConfig::as_l2())
-        .with_tier(l3, TierConfig::as_l3())
+        .with_level(l1, TierConfig::as_l1())
+        .with_level(l2, TierConfig::as_l2())
+        .with_level(l3, TierConfig::as_l3())
         .build()
         .await
         .unwrap_or_else(|_| panic!("Failed to build cache system"));
@@ -95,9 +95,9 @@ async fn test_multi_tier_stats() {
     );
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1.clone(), TierConfig::as_l1())
-        .with_tier(l2.clone(), TierConfig::as_l2())
-        .with_tier(l3.clone(), TierConfig::as_l3())
+        .with_level(l1.clone(), TierConfig::as_l1())
+        .with_level(l2.clone(), TierConfig::as_l2())
+        .with_level(l3.clone(), TierConfig::as_l3())
         .build()
         .await
         .unwrap_or_else(|_| panic!("Failed to build cache system"));
@@ -204,9 +204,9 @@ async fn test_multi_tier_ttl_scaling() {
     );
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1, TierConfig::as_l1())
-        .with_tier(l2, TierConfig::as_l2())
-        .with_tier(
+        .with_level(l1, TierConfig::as_l1())
+        .with_level(l2, TierConfig::as_l2())
+        .with_level(
             l3,
             TierConfig::as_l3(), // L3 has 2x TTL multiplier
         )
@@ -241,7 +241,7 @@ async fn test_multi_tier_ttl_scaling() {
 
 /// Test multi-tier cache miss
 #[tokio::test]
-async fn test_multi_tier_cache_miss() {
+async fn test_multi_level_cache_miss() {
     let l1 = Arc::new(
         RedisCache::new()
             .await
@@ -254,8 +254,8 @@ async fn test_multi_tier_cache_miss() {
     );
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1, TierConfig::as_l1())
-        .with_tier(l2, TierConfig::as_l2())
+        .with_level(l1, TierConfig::as_l1())
+        .with_level(l2, TierConfig::as_l2())
         .build()
         .await
         .unwrap_or_else(|_| panic!("Failed to build cache system"));
@@ -302,8 +302,8 @@ async fn test_convenience_methods() {
 
     // Test with_l3() and with_l4() convenience methods
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1_backend, TierConfig::as_l1())
-        .with_tier(l2_backend, TierConfig::as_l2())
+        .with_level(l1_backend, TierConfig::as_l1())
+        .with_level(l2_backend, TierConfig::as_l2())
         .with_l3(l3_backend)
         .with_l4(l4_backend)
         .build()
@@ -355,8 +355,8 @@ async fn test_multi_tier_stampede_protection() {
     );
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1, TierConfig::as_l1())
-        .with_tier(l2, TierConfig::as_l2())
+        .with_level(l1, TierConfig::as_l1())
+        .with_level(l2, TierConfig::as_l2())
         .with_l3(l3)
         .build()
         .await
@@ -433,8 +433,8 @@ async fn test_stampede_retrieves_from_l3() {
     );
 
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1.clone(), TierConfig::as_l1())
-        .with_tier(l2.clone(), TierConfig::as_l2())
+        .with_level(l1.clone(), TierConfig::as_l1())
+        .with_level(l2.clone(), TierConfig::as_l2())
         .with_l3(l3.clone())
         .build()
         .await

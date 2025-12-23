@@ -1,4 +1,4 @@
-use multi_tier_cache::CacheSystem;
+use multi_level_cache::CacheSystem;
 use tracing_subscriber::EnvFilter; // Import fmt module
 
 #[tokio::main]
@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         .set_with_strategy(
             "test_key",
             serde_json::json!("value"),
-            multi_tier_cache::CacheStrategy::ShortTerm,
+            multi_level_cache::CacheStrategy::ShortTerm,
         )
         .await?;
 

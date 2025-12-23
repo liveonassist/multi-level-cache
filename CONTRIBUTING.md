@@ -1,6 +1,6 @@
-# Contributing to multi-tier-cache
+# Contributing to multi-level-cache
 
-Thank you for your interest in contributing to multi-tier-cache! 🎉
+Thank you for your interest in contributing to multi-level-cache! 🎉
 
 ## 🚀 Getting Started
 
@@ -8,39 +8,45 @@ Thank you for your interest in contributing to multi-tier-cache! 🎉
 
 1. **Fork** the repository on GitHub
 2. **Clone** your fork locally:
+
    ```bash
-   git clone https://github.com/YOUR_USERNAME/multi-tier-cache.git
-   cd multi-tier-cache
+   git clone https://github.com/YOUR_USERNAME/multi-level-cache.git
+   cd multi-level-cache
    ```
 
 3. **Add upstream** remote:
    ```bash
-   git remote add upstream https://github.com/thichuong/multi-tier-cache.git
+   git remote add upstream https://github.com/thichuong/multi-level-cache.git
    ```
 
 ### Development Environment
 
 **Prerequisites:**
+
 - Rust 1.70+ (2021 edition)
 - Redis server running locally (for tests and examples)
 
 **Install Redis** (Fedora):
+
 ```bash
 sudo dnf install redis
 sudo systemctl start redis
 ```
 
 **Build the project:**
+
 ```bash
 cargo build
 ```
 
 **Run tests:**
+
 ```bash
 cargo test
 ```
 
 **Run examples:**
+
 ```bash
 cargo run --example basic_usage
 cargo run --example stampede_protection
@@ -62,17 +68,20 @@ Found a bug? Please create an issue with:
   - Code snippet (if applicable)
 
 **Example:**
+
 ```markdown
 Title: Cache stampede protection not working with custom Duration
 
 **Expected**: Only one request should compute value
 **Actual**: Multiple requests compute simultaneously
 **Steps**:
+
 1. Use CacheStrategy::Custom(Duration::from_secs(30))
 2. Fire 10 concurrent requests
 3. Observe multiple computations in logs
 
 **Environment**:
+
 - OS: Fedora 42
 - Rust: 1.75.0
 - Redis: 7.2.0
@@ -97,6 +106,7 @@ Have an idea? Open an issue with:
 #### PR Process
 
 1. **Create a branch:**
+
    ```bash
    git checkout -b feature/your-feature-name
    # or
@@ -110,6 +120,7 @@ Have an idea? Open an issue with:
    - Update documentation (README, rustdoc)
 
 3. **Test your changes:**
+
    ```bash
    cargo test
    cargo clippy --all-targets --all-features -- -D warnings
@@ -118,6 +129,7 @@ Have an idea? Open an issue with:
    ```
 
 4. **Commit with clear messages:**
+
    ```bash
    git commit -m "Add feature: cache invalidation patterns
 
@@ -128,9 +140,11 @@ Have an idea? Open an issue with:
    ```
 
 5. **Push and create PR:**
+
    ```bash
    git push origin feature/your-feature-name
    ```
+
    Then open a PR on GitHub.
 
 6. **PR description should include:**
@@ -144,16 +158,21 @@ Have an idea? Open an issue with:
 ### Rust Style
 
 - **Run rustfmt** before committing:
+
   ```bash
   cargo fmt
   ```
 
 - **Fix clippy warnings:**
+
   ```bash
   cargo clippy --all-targets --all-features -- -D warnings
   ```
 
   **Note:** We enforce strict lints including `pedantic`, `unwrap_used`, `expect_used`, and `indexing_slicing`. Please ensure your code is free of warnings.
+
+  ```
+
   ```
 
 - **Follow Rust API Guidelines**: https://rust-lang.github.io/api-guidelines/
@@ -161,7 +180,8 @@ Have an idea? Open an issue with:
 ### Documentation
 
 - **Public APIs** must have rustdoc comments with examples:
-  ```rust
+
+  ````rust
   /// Stores a value in cache with specified strategy.
   ///
   /// # Arguments
@@ -171,7 +191,7 @@ Have an idea? Open an issue with:
   ///
   /// # Example
   /// ```rust
-  /// use multi_tier_cache::{CacheSystem, CacheStrategy};
+  /// use multi_level_cache::{CacheSystem, CacheStrategy};
   ///
   /// # async fn example() -> anyhow::Result<()> {
   /// let cache = CacheSystem::new().await?;
@@ -184,13 +204,14 @@ Have an idea? Open an issue with:
   pub async fn set_with_strategy(...) -> Result<()> {
       // ...
   }
-  ```
+  ````
 
 - **Add examples** for new features in `examples/` directory
 
 ### Testing
 
 - **Write tests** for new functionality:
+
   ```rust
   #[cfg(test)]
   mod tests {
@@ -292,6 +313,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` Maintenance tasks
 
 **Examples:**
+
 ```
 feat: add cache invalidation pattern matching
 fix: stampede protection not working with custom duration
@@ -320,6 +342,7 @@ test: add integration tests for Redis Streams
 ## 🏆 Recognition
 
 Contributors will be:
+
 - Listed in CHANGELOG.md for their contributions
 - Mentioned in release notes
 - Added to GitHub contributors page automatically
@@ -327,6 +350,7 @@ Contributors will be:
 ## 📄 License
 
 By contributing, you agree that your contributions will be licensed under:
+
 - **MIT License** OR
 - **Apache License 2.0**
 
@@ -341,13 +365,14 @@ Your choice (dual-licensed).
 ## 🙏 Thank You!
 
 Every contribution matters, whether it's:
+
 - Fixing a typo
 - Improving documentation
 - Adding a test
 - Implementing a feature
 - Reporting a bug
 
-Thank you for helping make multi-tier-cache better! 🚀
+Thank you for helping make multi-level-cache better! 🚀
 
 ---
 

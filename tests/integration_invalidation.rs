@@ -5,7 +5,7 @@
 mod common;
 
 use common::*;
-use multi_tier_cache::CacheStrategy;
+use multi_level_cache::CacheStrategy;
 use std::time::Duration;
 use tokio::time::sleep;
 

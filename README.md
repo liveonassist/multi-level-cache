@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE-APACHE)
 
-**A high-performance, production-ready multi-tier caching library for Rust** featuring L1 (in-memory) + L2 (Redis) caches, automatic stampede protection, and built-in Redis Streams support.
+**A high-performance, production-ready multi-level caching library for Rust** featuring L1 (in-memory) + L2 (Redis) caches, automatic stampede protection, and built-in Redis Streams support.
 
 This is a forked project from [multi-tier-cache](https://github.com/thichuong/multi-tier-cache).
 
@@ -23,7 +23,7 @@ This is a forked project from [multi-tier-cache](https://github.com/thichuong/mu
   - [5. Cross-Instance Cache Invalidation](#5-cross-instance-cache-invalidation-new-in-040-)
   - [6. Available Backends](#6-available-backends-new-in-052-) ⭐ **NEW**
   - [7. Custom Cache Backends](#7-custom-cache-backends-new-in-030-)
-  - [8. Multi-Tier Architecture](#8-multi-tier-architecture-new-in-050-)
+  - [8. Multi-Level Architecture](#8-multi-level-architecture-new-in-050-)
 - [Feature Compatibility](#%EF%B8%8F-feature-compatibility)
 - [Performance Benchmarks](#-performance-benchmarks)
 - [Configuration](#-configuration)
@@ -37,13 +37,13 @@ This is a forked project from [multi-tier-cache](https://github.com/thichuong/mu
 
 ## ✨ Features
 
-- **🔥 Multi-Tier Architecture**: Combines fast in-memory (Moka) with persistent distributed (Redis) caching
-- **🌐 Dynamic Multi-Tier**: Support for 3, 4, or more cache tiers (L1+L2+L3+L4+...) with flexible configuration ⭐ **NEW**
+- **🔥 Multi-Level Architecture**: Combines fast in-memory (Moka) with persistent distributed (Redis) caching
+- **🌐 Dynamic Multi-Level**: Support for 3, 4, or more cache tiers (L1+L2+L3+L4+...) with flexible configuration ⭐ **NEW**
 - **🔄 Cross-Instance Cache Invalidation**: Real-time cache synchronization across all instances via Redis Pub/Sub
 - **🔌 Pluggable Backends**: Swap Moka/Redis with custom implementations (DashMap, Memcached, RocksDB, etc.)
 - **🛡️ Cache Stampede Protection**: DashMap + Mutex request coalescing prevents duplicate computations (99.6% latency reduction: 534ms → 5.2ms)
 - **📊 Redis Streams**: Built-in publish/subscribe with automatic trimming for event streaming
-- **⚡ Automatic Tier Promotion**: Intelligent cache tier promotion for frequently accessed data with TTL preservation and per-tier scaling
+- **⚡ Automatic Level Promotion**: Intelligent cache tier promotion for frequently accessed data with TTL preservation and per-tier scaling
 - **📈 Comprehensive Statistics**: Hit rates per tier, promotions, in-flight request tracking, invalidation metrics
 - **🎯 Zero-Config**: Sensible defaults, works out of the box
 - **✅ Production-Proven**: Battle-tested at **16,829+ RPS** with **5.2ms latency** and **95% hit rate**
@@ -68,7 +68,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-multi-tier-cache = "0.5"
+multi-level-cache = "0.5"
 tokio = { version = "1.28", features = ["full"] }
 serde_json = "1.0"
 ```
@@ -76,7 +76,7 @@ serde_json = "1.0"
 ## 🚀 Quick Start
 
 ```rust
-use multi_tier_cache::{CacheSystem, CacheStrategy};
+use multi_level_cache::{CacheSystem, CacheStrategy};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -323,7 +323,7 @@ In distributed systems with multiple cache instances, **stale data** is a common
 **1. Remove Strategy** (Lazy Reload)
 
 ```rust
-use multi_tier_cache::{CacheManager, L1Cache, L2Cache, InvalidationConfig};
+use multi_level_cache::{CacheManager, L1Cache, L2Cache, InvalidationConfig};
 
 // Initialize with invalidation support
 let config = InvalidationConfig::default();
@@ -405,7 +405,7 @@ Instance A              Redis Pub/Sub           Instance B
 #### Configuration
 
 ```rust
-use multi_tier_cache::InvalidationConfig;
+use multi_level_cache::InvalidationConfig;
 
 let config = InvalidationConfig {
     channel: "my_app:cache:invalidate".to_string(),
@@ -454,7 +454,7 @@ The library includes multiple built-in cache backend implementations beyond the 
 #### Example: Using DashMapCache as L1
 
 ```rust
-use multi_tier_cache::{DashMapCache, CacheSystemBuilder, CacheBackend};
+use multi_level_cache::{DashMapCache, CacheSystemBuilder, CacheBackend};
 use std::sync::Arc;
 
 let dashmap_l1 = Arc::new(DashMapCache::new());
@@ -469,11 +469,11 @@ let cache = CacheSystemBuilder::new()
 
 ```toml
 [dependencies]
-multi-tier-cache = { version = "0.5", features = ["quickcache"] }
+multi-level-cache = { version = "0.5", features = ["quickcache"] }
 ```
 
 ```rust
-use multi_tier_cache::{QuickCacheBackend, CacheSystemBuilder, CacheBackend};
+use multi_level_cache::{QuickCacheBackend, CacheSystemBuilder, CacheBackend};
 use std::sync::Arc;
 
 let quickcache_l1 = Arc::new(QuickCacheBackend::new(5000).await?);
@@ -501,7 +501,7 @@ You can replace the default Moka (L1) and Redis (L2) backends with your own cust
 #### Basic Example: Custom HashMap L1 Cache
 
 ```rust
-use multi_tier_cache::{CacheBackend, CacheSystemBuilder, async_trait};
+use multi_level_cache::{CacheBackend, CacheSystemBuilder, async_trait};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -563,7 +563,7 @@ let cache = CacheSystemBuilder::new()
 For L2 caches, implement `L2CacheBackend` which extends `CacheBackend` with `get_with_ttl()`:
 
 ```rust
-use multi_tier_cache::{L2CacheBackend, async_trait};
+use multi_level_cache::{L2CacheBackend, async_trait};
 
 #[async_trait]
 impl CacheBackend for MyCustomL2 {
@@ -585,7 +585,7 @@ impl L2CacheBackend for MyCustomL2 {
 #### Builder API
 
 ```rust
-use multi_tier_cache::CacheSystemBuilder;
+use multi_level_cache::CacheSystemBuilder;
 
 let cache = CacheSystemBuilder::new()
     .with_l1(custom_l1)        // Custom L1 backend
@@ -608,17 +608,17 @@ let cache = CacheSystemBuilder::new()
 - No-op cache (for testing)
 - Mixed backend configurations
 
-### 8. Multi-Tier Architecture
+### 8. Multi-level Architecture
 
-You can configure **3, 4, or more cache tiers** beyond the default L1+L2 setup!
+You can configure **3, 4, or more cache levels** beyond the default L1+L2 setup!
 
 **Use Cases:**
 
 - **L3 (Cold Storage)**: RocksDB or LevelDB for large datasets with longer TTL
 - **L4 (Archive)**: S3 or filesystem for rarely-accessed but important data
-- **Custom Tiers**: Any combination of backends to fit your workload
+- **Custom Levels**: Any combination of backends to fit your workload
 
-#### Why Multi-Tier?
+#### Why Multi-Level?
 
 ```
 Request → L1 (Hot - RAM) → L2 (Warm - Redis) → L3 (Cold - RocksDB) → L4 (Archive - S3)
@@ -632,7 +632,7 @@ Request → L1 (Hot - RAM) → L2 (Warm - Redis) → L3 (Cold - RocksDB) → L4 
 #### Basic Example: 3-Tier Cache
 
 ```rust
-use multi_tier_cache::{CacheSystemBuilder, TierConfig, L2Cache};
+use multi_level_cache::{CacheSystemBuilder, TierConfig, L2Cache};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -644,8 +644,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Build 3-tier cache
     let cache = CacheSystemBuilder::new()
-        .with_tier(l1, TierConfig::as_l1())
-        .with_tier(l2, TierConfig::as_l2())
+        .with_level(l1, TierConfig::as_l1())
+        .with_level(l2, TierConfig::as_l2())
         .with_l3(l3)  // Convenience method: 2x TTL
         .build()
         .await?;
@@ -726,10 +726,10 @@ if let Some(tier_stats) = cache.cache_manager().get_tier_stats() {
 
 ```rust
 let cache = CacheSystemBuilder::new()
-    .with_tier(moka_l1, TierConfig::as_l1())
-    .with_tier(redis_l2, TierConfig::as_l2())
-    .with_tier(rocksdb_l3, TierConfig::as_l3())
-    .with_tier(s3_l4, TierConfig::as_l4())
+    .with_level(moka_l1, TierConfig::as_l1())
+    .with_level(redis_l2, TierConfig::as_l2())
+    .with_level(rocksdb_l3, TierConfig::as_l3())
+    .with_level(s3_l4, TierConfig::as_l4())
     .build()
     .await?;
 ```
@@ -750,18 +750,7 @@ Request for "key"
 Next request for "key" → L1 Hit! <1ms
 ```
 
-#### Backward Compatibility
-
-**Existing 2-tier users**: No changes required! Your code continues to work:
-
-```rust
-// This still works exactly as before (v0.1.0 - v0.4.x)
-let cache = CacheSystemBuilder::new().build().await?;
-```
-
-**Multi-tier mode** is opt-in via `.with_tier()` or `.with_l3()`/`.with_l4()` methods.
-
-#### When to Use Multi-Tier
+#### When to Use Multi-Level
 
 ✅ **Good fit:**
 
@@ -783,7 +772,7 @@ let cache = CacheSystemBuilder::new().build().await?;
 You can customize the Moka in-memory cache settings (capacity, TTL) using `MokaCacheConfig` via the builder:
 
 ```rust
-use multi_tier_cache::{CacheSystemBuilder, MokaCacheConfig};
+use multi_level_cache::{CacheSystemBuilder, MokaCacheConfig};
 use std::time::Duration;
 
 #[tokio::main]
@@ -850,7 +839,7 @@ let cache = CacheManager::new_with_backends(
 All features work together seamlessly:
 
 ```rust
-use multi_tier_cache::*;
+use multi_level_cache::*;
 
 // v0.4.0: Invalidation
 let config = InvalidationConfig::default();
@@ -895,12 +884,12 @@ Tested in production environment:
 
 ### Comparison with Other Libraries
 
-| Library              | Multi-Tier  | Stampede Protection | Redis Support | Streams     | Invalidation |
-| -------------------- | ----------- | ------------------- | ------------- | ----------- | ------------ |
-| **multi-tier-cache** | ✅ L1+L2    | ✅ Full             | ✅ Full       | ✅ Built-in | ✅ Pub/Sub   |
-| cached               | ❌ Single   | ❌ No               | ❌ No         | ❌ No       | ❌ No        |
-| moka                 | ❌ L1 only  | ✅ L1 only          | ❌ No         | ❌ No       | ❌ No        |
-| redis-rs             | ❌ No cache | ❌ Manual           | ✅ Low-level  | ✅ Manual   | ❌ Manual    |
+| Library               | Multi-Tier  | Stampede Protection | Redis Support | Streams     | Invalidation |
+| --------------------- | ----------- | ------------------- | ------------- | ----------- | ------------ |
+| **multi-level-cache** | ✅ L1+L2    | ✅ Full             | ✅ Full       | ✅ Built-in | ✅ Pub/Sub   |
+| cached                | ❌ Single   | ❌ No               | ❌ No         | ❌ No       | ❌ No        |
+| moka                  | ❌ L1 only  | ✅ L1 only          | ❌ No         | ❌ No       | ❌ No        |
+| redis-rs              | ❌ No cache | ❌ Manual           | ✅ Low-level  | ✅ Manual   | ❌ Manual    |
 
 ### Running Benchmarks
 
@@ -1200,7 +1189,7 @@ fn expensive_function(arg: String) -> String {
     // ...
 }
 
-// After (multi-tier-cache)
+// After (multi-level-cache)
 async fn expensive_function(cache: &CacheManager, arg: String) -> Result<String> {
     cache.get_or_compute_with(
         &format!("func:{}", arg),
@@ -1218,7 +1207,7 @@ let mut conn = client.get_connection()?;
 let value: String = conn.get("key")?;
 conn.set_ex("key", value, 3600)?;
 
-// After (multi-tier-cache)
+// After (multi-level-cache)
 if let Some(value) = cache.cache_manager().get("key").await? {
     // Use cached value
 }

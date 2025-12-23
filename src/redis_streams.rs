@@ -19,7 +19,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use multi_tier_cache::RedisStreams;
+//! use multi_level_cache::RedisStreams;
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let streams = RedisStreams::new("redis://127.0.0.1:6379").await?;
@@ -66,7 +66,7 @@ impl RedisStreams {
     /// # Example
     ///
     /// ```no_run
-    /// # use multi_tier_cache::RedisStreams;
+    /// # use multi_level_cache::RedisStreams;
     /// # async fn example() -> anyhow::Result<()> {
     /// let streams = RedisStreams::new("redis://127.0.0.1:6379").await?;
     /// # Ok(())
@@ -97,7 +97,7 @@ impl RedisStreams {
     /// # Example
     ///
     /// ```no_run
-    /// # use multi_tier_cache::RedisStreams;
+    /// # use multi_level_cache::RedisStreams;
     /// # async fn example() -> anyhow::Result<()> {
     /// # let streams = RedisStreams::new("redis://127.0.0.1:6379").await?;
     /// let event_id = streams.stream_add(
@@ -163,7 +163,7 @@ impl RedisStreams {
     /// # Example
     ///
     /// ```no_run
-    /// # use multi_tier_cache::RedisStreams;
+    /// # use multi_level_cache::RedisStreams;
     /// # async fn example() -> anyhow::Result<()> {
     /// # let streams = RedisStreams::new("redis://127.0.0.1:6379").await?;
     /// let latest_10 = streams.stream_read_latest("events", 10).await?;
@@ -217,7 +217,7 @@ impl RedisStreams {
     /// # Example
     ///
     /// ```no_run
-    /// # use multi_tier_cache::RedisStreams;
+    /// # use multi_level_cache::RedisStreams;
     /// # async fn example() -> anyhow::Result<()> {
     /// # let streams = RedisStreams::new("redis://127.0.0.1:6379").await?;
     /// // Non-blocking: read new entries since last seen ID
