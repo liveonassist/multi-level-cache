@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Documentation & Examples**: Comprehensive update to examples
   - Added `examples/multi_tier_usage.rs` demonstrating 3-tier architecture (L1+L2+L3)
-  - Updated `examples/custom_backends.rs` with `with_tier` usage for custom tiers
+  - Updated `examples/custom_backends.rs` with `with_level` usage for custom tiers
   - Updated `examples/basic_usage.rs` and `examples/advanced_usage.rs` to reflect multi-tier capabilities
   - Fixed outdated comments and patterns in examples
 
@@ -227,8 +227,8 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
   - Better separation and discoverability
 
 - **Public API**: Enhanced re-exports
-  - Backends accessible via `multi_tier_cache::backends::*`
-  - Also available at top level: `multi_tier_cache::{MokaCache, RedisCache, DashMapCache, ...}`
+  - Backends accessible via `multi_level_cache::backends::*`
+  - Also available at top level: `multi_level_cache::{MokaCache, RedisCache, DashMapCache, ...}`
   - Feature-gated exports for optional backends
 
 - **Cargo.toml**: New optional dependencies and features
@@ -286,7 +286,7 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
   - Configurable promotion behavior per tier
 
 - **Builder API Extensions**: New methods for tier configuration
-  - `.with_tier(backend, TierConfig)` - Add custom tier with full control
+  - `.with_level(backend, TierConfig)` - Add custom tier with full control
   - `.with_l3(backend)` - Convenience method for L3 (cold tier, 2x TTL)
   - `.with_l4(backend)` - Convenience method for L4 (archive tier, 8x TTL)
   - Automatic tier sorting by level during build
@@ -324,7 +324,7 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
 
 - **CacheManager**: Extended for multi-tier support
   - Added `tiers: Option<Vec<CacheTier>>` field
-  - New `new_with_tiers(tiers, streaming_backend)` constructor
+  - New `new_with_levels(tiers, streaming_backend)` constructor
   - Updated `get()` to iterate through all tiers with promotion
   - Updated `set_with_strategy()` to write to all tiers with TTL scaling
   - Updated `invalidate()` and `update_cache()` to work across all tiers
@@ -345,7 +345,7 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
 - ✅ **Fully Backward Compatible**: All 36 existing tests pass
 - Legacy 2-tier mode (L1+L2) continues to work without changes
 - `tiers: None` triggers legacy code paths
-- Multi-tier mode activated only when using `.with_tier()` builder methods
+- Multi-tier mode activated only when using `.with_level()` builder methods
 - Existing APIs unchanged: `get()`, `set_with_strategy()`, `invalidate()`, etc.
 
 ### Migration Guide
@@ -355,12 +355,12 @@ let cache = L2Cache::with_url("redis://custom:6379").await?;
 **New 3+ tier users**: Use the builder pattern:
 
 ```rust
-use multi_tier_cache::{CacheSystemBuilder, TierConfig};
+use multi_level_cache::{CacheSystemBuilder, TierConfig};
 
 // 3-tier setup
 let cache = CacheSystemBuilder::new()
-    .with_tier(l1, TierConfig::as_l1())
-    .with_tier(l2, TierConfig::as_l2())
+    .with_level(l1, TierConfig::as_l1())
+    .with_level(l2, TierConfig::as_l2())
     .with_l3(rocksdb)  // Convenience method
     .build()
     .await?;

@@ -1,7 +1,7 @@
 //! Benchmarks for serialization and type-safe caching
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use multi_tier_cache::{
+use multi_level_cache::{
     CacheStrategy, CacheSystem, CacheSystemBuilder, backends::redis::RedisCache,
 };
 use serde::{Deserialize, Serialize};

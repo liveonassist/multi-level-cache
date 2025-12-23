@@ -1,11 +1,11 @@
 #!/bin/bash
-# Quick Start Script for multi-tier-cache
+# Quick Start Script for multi-level-cache
 # This script helps you get started with the library quickly
 
 set -e
 
 echo "================================================"
-echo "   multi-tier-cache Quick Start Script"
+echo "   multi-level-cache Quick Start Script"
 echo "================================================"
 echo ""
 

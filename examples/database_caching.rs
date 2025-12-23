@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example database_caching`
 
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_level_cache::{CacheStrategy, CacheSystem};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 

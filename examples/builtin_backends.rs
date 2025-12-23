@@ -23,8 +23,8 @@
 //! ```
 
 use anyhow::Result;
-use multi_tier_cache::traits::L2CacheBackend;
-use multi_tier_cache::{CacheBackend, CacheStrategy, CacheSystemBuilder, TierConfig};
+use multi_level_cache::traits::L2CacheBackend;
+use multi_level_cache::{CacheBackend, CacheStrategy, CacheSystemBuilder, TierConfig};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
 
 /// Demonstrate `DashMapCache` as L1 backend
 async fn demo_dashmap_backend() -> Result<()> {
-    use multi_tier_cache::DashMapCache;
+    use multi_level_cache::DashMapCache;
 
     println!("Using DashMapCache as L1 backend...");
 
@@ -85,7 +85,7 @@ async fn demo_dashmap_backend() -> Result<()> {
 
     // Build cache system with DashMapCache as L1
     let cache = CacheSystemBuilder::new()
-        .with_tier(
+        .with_level(
             dashmap_l1.clone() as Arc<dyn L2CacheBackend>,
             TierConfig::as_l1(),
         )
@@ -127,7 +127,7 @@ async fn demo_dashmap_backend() -> Result<()> {
 /// Demonstrate `MemcachedCache` standalone usage
 #[cfg(feature = "memcached")]
 async fn demo_memcached_backend() -> Result<()> {
-    use multi_tier_cache::MemcachedCache;
+    use multi_level_cache::MemcachedCache;
     use std::time::Duration;
 
     println!("Using MemcachedCache (standalone demonstration)...");
@@ -201,7 +201,7 @@ async fn demo_memcached_backend() -> Result<()> {
 /// Demonstrate `QuickCacheBackend` as L1 backend
 #[cfg(feature = "quickcache")]
 async fn demo_quickcache_backend() -> Result<()> {
-    use multi_tier_cache::QuickCacheBackend;
+    use multi_level_cache::QuickCacheBackend;
 
     println!("Using QuickCacheBackend as L1 backend...");
 
@@ -210,7 +210,7 @@ async fn demo_quickcache_backend() -> Result<()> {
 
     // Build cache system with QuickCache as L1
     let cache = CacheSystemBuilder::new()
-        .with_tier(
+        .with_level(
             quickcache_l1.clone() as Arc<dyn L2CacheBackend>,
             TierConfig::as_l1(),
         )

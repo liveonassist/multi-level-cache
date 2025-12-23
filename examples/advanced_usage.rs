@@ -4,7 +4,7 @@
 //!
 //! Run with: cargo run --example `advanced_usage`
 
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_level_cache::{CacheStrategy, CacheSystem};
 use std::time::Duration;
 
 async fn fetch_from_database(id: u32) -> anyhow::Result<serde_json::Value> {

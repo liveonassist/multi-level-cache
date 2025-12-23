@@ -1,17 +1,29 @@
+#![cfg(feature = "redis")]
 //! Basic Usage Example
 //!
 //! Demonstrates simple cache operations: set, get, and health check.
 //!
 //! Run with: cargo run --example `basic_usage`
 
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_level_cache::backends::{MokaCache, redis::RedisCache};
+use multi_level_cache::{CacheBackend, CacheStrategy, CacheSystemBuilder};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("=== Multi-Tier Cache: Basic Usage ===\n");
+    println!("=== Multi-Level Cache: Basic Usage ===\n");
 
-    // 1. Initialize cache system (Default: L1 Moka + L2 Redis)
-    let cache = CacheSystem::new().await?;
+    // Initialize Backends
+    let moka_cache: Arc<dyn CacheBackend> =
+        Arc::new(MokaCache::new(moka::future::Cache::new(10_000))?);
+    let redis_cache: Arc<dyn CacheBackend> = Arc::new(RedisCache::new().await?);
+
+    // 1. Initialize cache system
+    let cache = CacheSystemBuilder::new()
+        .with_l1(moka_cache)
+        .with_l2(redis_cache)
+        .build()
+        .await?;
     println!();
 
     // 2. Health check

@@ -19,7 +19,7 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use multi_tier_cache::backends::{MokaCache, RedisCache};
+//! use multi_level_cache::backends::{MokaCache, RedisCache};
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! // Explicit backend selection
@@ -27,7 +27,7 @@
 //! let redis = RedisCache::new().await?;
 //!
 //! // Or use type aliases for backward compatibility
-//! use multi_tier_cache::backends::{L1Cache, L2Cache};
+//! use multi_level_cache::backends::{L1Cache, L2Cache};
 //! let l1 = L1Cache::new()?;  // MokaCache
 //! let l2 = L2Cache::new().await?;  // RedisCache
 //! # Ok(())

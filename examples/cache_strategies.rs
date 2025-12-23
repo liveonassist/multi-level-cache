@@ -4,7 +4,7 @@
 //!
 //! Run with: cargo run --example `cache_strategies`
 
-use multi_tier_cache::{CacheStrategy, CacheSystem};
+use multi_level_cache::{CacheStrategy, CacheSystem};
 use std::time::Duration;
 
 #[tokio::main]

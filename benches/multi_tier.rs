@@ -1,8 +1,8 @@
 //! Benchmarks for multi-tier cache operations (v0.5.0+)
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use multi_tier_cache::backends::redis::RedisCache;
-use multi_tier_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder, TierConfig};
+use multi_level_cache::backends::redis::RedisCache;
+use multi_level_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder, TierConfig};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,8 +33,8 @@ fn build_2tier_cache(rt: &Runtime) -> CacheSystem {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -61,9 +61,9 @@ fn build_3tier_cache(rt: &Runtime) -> CacheSystem {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::as_l3())
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::as_l3())
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -95,10 +95,10 @@ fn build_4tier_cache(rt: &Runtime) -> CacheSystem {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::as_l3())
-            .with_tier(l4, TierConfig::as_l4())
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::as_l3())
+            .with_level(l4, TierConfig::as_l4())
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -187,9 +187,9 @@ fn bench_multi_tier_read(c: &mut Criterion) {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::as_l3())
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::as_l3())
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -250,9 +250,9 @@ fn bench_ttl_scaling(c: &mut Criterion) {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::new(3).with_ttl_scale(1.0))
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::new(3).with_ttl_scale(1.0))
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -295,10 +295,10 @@ fn bench_ttl_scaling(c: &mut Criterion) {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::as_l3()) // 2x
-            .with_tier(l4, TierConfig::as_l4()) // 8x
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::as_l3()) // 2x
+            .with_level(l4, TierConfig::as_l4()) // 8x
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -342,9 +342,9 @@ fn bench_data_size_multi_tier(c: &mut Criterion) {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::as_l3())
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::as_l3())
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))
@@ -403,9 +403,9 @@ fn bench_tier_stats(c: &mut Criterion) {
         );
 
         CacheSystemBuilder::new()
-            .with_tier(l1, TierConfig::as_l1())
-            .with_tier(l2, TierConfig::as_l2())
-            .with_tier(l3, TierConfig::as_l3())
+            .with_level(l1, TierConfig::as_l1())
+            .with_level(l2, TierConfig::as_l2())
+            .with_level(l3, TierConfig::as_l3())
             .build()
             .await
             .unwrap_or_else(|_| panic!("Failed to build cache system"))

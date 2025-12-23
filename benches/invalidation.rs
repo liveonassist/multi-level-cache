@@ -2,12 +2,12 @@
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use moka::future::Cache;
-use multi_tier_cache::backends::redis::{
+use multi_level_cache::backends::redis::{
     RedisInvalidationConfig, RedisInvalidationPublisher, RedisInvalidationSubscriber,
 };
-use multi_tier_cache::invalidation::InvalidationSystem;
-use multi_tier_cache::{CacheStrategy, MokaCache, backends::redis::RedisCache};
-use multi_tier_cache::{CacheSystem, CacheSystemBuilder};
+use multi_level_cache::invalidation::InvalidationSystem;
+use multi_level_cache::{CacheStrategy, MokaCache, backends::redis::RedisCache};
+use multi_level_cache::{CacheSystem, CacheSystemBuilder};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;

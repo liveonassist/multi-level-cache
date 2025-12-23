@@ -57,8 +57,8 @@ impl CacheEntry {
 ///
 /// **Example**:
 /// ```rust
-/// use multi_tier_cache::backends::DashMapCache;
-/// use multi_tier_cache::traits::CacheBackend;
+/// use multi_level_cache::backends::DashMapCache;
+/// use multi_level_cache::traits::CacheBackend;
 /// use std::time::Duration;
 ///
 /// # async fn example() -> anyhow::Result<()> {

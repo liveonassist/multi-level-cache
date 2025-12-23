@@ -1,12 +1,12 @@
 [package]
-name = "multi-tier-cache"
+name = "multi-level-cache"
 version = "0.1.0"
 edition = "2024"
 authors = ["Chris Tam <ohgodtamit@gmail.com>", "thichuong <thichuong22022000@gmail.com>"]
 description = "Customizable multi-level cache with L1 (Moka in-memory) + L2 (Redis distributed) defaults, expandable to L3/L4+, cross-instance invalidation via Pub/Sub, stampede protection, and flexible TTL scaling"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/thichuong/multi-tier-cache"
-documentation = "https://docs.rs/multi-tier-cache"
+repository = "https://github.com/liveonassist/multi-level-cache"
+documentation = "https://docs.rs/multi-level-cache"
 keywords = ["cache", "redis", "memcached", "multi-tier", "backends"]
 categories = ["caching", "asynchronous", "database"]
 readme = "README.md"

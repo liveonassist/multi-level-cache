@@ -5,7 +5,7 @@
 //! # Example: Using Default Backends
 //!
 //! ```rust,no_run
-//! use multi_tier_cache::CacheSystemBuilder;
+//! use multi_level_cache::CacheSystemBuilder;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -19,7 +19,7 @@
 //! # Example: Custom L1 Backend
 //!
 //! ```rust,ignore
-//! use multi_tier_cache::{CacheSystemBuilder, CacheBackend};
+//! use multi_level_cache::{CacheSystemBuilder, CacheBackend};
 //! use std::sync::Arc;
 //!
 //! let custom_l1 = Arc::new(MyCustomL1Cache::new());
@@ -32,7 +32,7 @@
 
 use crate::invalidation::InvalidationSystem;
 use crate::traits::StreamingBackend;
-use crate::{CacheBackend, CacheManager, CacheSystem, CacheTier, TierConfig};
+use crate::{CacheBackend, CacheLevel, CacheManager, CacheSystem, TierConfig};
 use anyhow::{Result, bail};
 use std::sync::Arc;
 use tracing::info;
@@ -42,10 +42,10 @@ use tracing::info;
 /// This builder allows you to configure custom L1 (in-memory) and L2 (distributed)
 /// cache backends, enabling you to swap Moka and Redis with alternative implementations.
 ///
-/// # Multi-Tier Support (v0.5.0+)
+/// # Multi-Level Support (v0.5.0+)
 ///
-/// The builder now supports dynamic multi-tier architectures (L1+L2+L3+L4+...).
-/// Use `.with_tier()` to add custom tiers, or `.with_l3()` / `.with_l4()` for convenience.
+/// The builder now supports dynamic multi-level architectures (L1+L2+L3+L4+...).
+/// Use `.with_level()` to add custom levels, or `.with_l3()` / `.with_l4()` for convenience.
 ///
 /// # Default Behavior
 ///
@@ -56,13 +56,13 @@ use tracing::info;
 /// # Type Safety
 ///
 /// The builder accepts any type that implements the required traits:
-/// - All tier backends must implement `CacheBackend` (for TTL support)
+/// - All level backends must implement `CacheBackend` (for TTL support)
 /// - Streaming backends must implement `StreamingBackend`
 ///
-/// # Example - Default 2-Tier
+/// # Example - Default 2-Level
 ///
 /// ```rust,no_run
-/// use multi_tier_cache::CacheSystemBuilder;
+/// use multi_level_cache::CacheSystemBuilder;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -78,7 +78,7 @@ use tracing::info;
 /// # Example - Custom 3-Tier (v0.5.0+)
 ///
 /// ```rust,ignore
-/// use multi_tier_cache::{CacheSystemBuilder, MokaCache, RedisCache, TierConfig};
+/// use multi_level_cache::{CacheSystemBuilder, MokaCache, RedisCache, TierConfig};
 /// use std::sync::Arc;
 ///
 /// let l1 = Arc::new(MokaCache::new().await?);
@@ -86,8 +86,8 @@ use tracing::info;
 /// let l3 = Arc::new(RocksDBCache::new("/tmp/cache").await?);
 ///
 /// let cache = CacheSystemBuilder::new()
-///     .with_tier(l1, TierConfig::as_l1())
-///     .with_tier(l2, TierConfig::as_l2())
+///     .with_level(l1, TierConfig::as_l1())
+///     .with_level(l2, TierConfig::as_l2())
 ///     .with_l3(l3)  // Convenience method
 ///     .build()
 ///     .await?;
@@ -105,7 +105,7 @@ impl CacheSystemBuilder {
     /// Create a new builder with no custom backends configured
     ///
     /// By default, calling `.build()` will use Moka (L1) and Redis (L2).
-    /// Use `.with_tier()` to configure multi-tier architecture (v0.5.0+).
+    /// Use `.with_level()` to configure multi-level architecture (v0.5.0+).
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -128,7 +128,7 @@ impl CacheSystemBuilder {
     ///
     /// ```rust,ignore
     /// use std::sync::Arc;
-    /// use multi_tier_cache::CacheSystemBuilder;
+    /// use multi_level_cache::CacheSystemBuilder;
     ///
     /// let kafka_backend = Arc::new(MyKafkaBackend::new());
     ///
@@ -156,7 +156,7 @@ impl CacheSystemBuilder {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use multi_tier_cache::{CacheSystemBuilder, TierConfig, MokaCache, RedisCache};
+    /// use multi_level_cache::{CacheSystemBuilder, TierConfig, MokaCache, RedisCache};
     /// use std::sync::Arc;
     ///
     /// let l1 = Arc::new(MokaCache::new().await?);
@@ -164,14 +164,14 @@ impl CacheSystemBuilder {
     /// let l3 = Arc::new(RocksDBCache::new("/tmp").await?);
     ///
     /// let cache = CacheSystemBuilder::new()
-    ///     .with_tier(l1, TierConfig::as_l1())
-    ///     .with_tier(l2, TierConfig::as_l2())
-    ///     .with_tier(l3, TierConfig::as_l3())
+    ///     .with_level(l1, TierConfig::as_l1())
+    ///     .with_level(l2, TierConfig::as_l2())
+    ///     .with_level(l3, TierConfig::as_l3())
     ///     .build()
     ///     .await?;
     /// ```
     #[must_use]
-    pub fn with_tier(mut self, backend: Arc<dyn CacheBackend>, config: TierConfig) -> Self {
+    pub fn with_level(mut self, backend: Arc<dyn CacheBackend>, config: TierConfig) -> Self {
         self.tiers.push((backend, config));
         self
     }
@@ -275,8 +275,8 @@ impl CacheSystemBuilder {
     ///
     /// # Multi-Tier Mode (v0.5.0+)
     ///
-    /// If tiers were configured via `.with_tier()`, `.with_l3()`, or `.with_l4()`,
-    /// the builder creates a multi-tier `CacheManager` using `new_with_tiers()`.
+    /// If tiers were configured via `.with_level()`, `.with_l3()`, or `.with_l4()`,
+    /// the builder creates a multi-tier `CacheManager` using `new_with_levels()`.
     ///
     /// # Returns
     ///
@@ -286,7 +286,7 @@ impl CacheSystemBuilder {
     /// # Example - Default 2-Tier
     ///
     /// ```rust,no_run
-    /// use multi_tier_cache::CacheSystemBuilder;
+    /// use multi_level_cache::CacheSystemBuilder;
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
@@ -318,10 +318,10 @@ impl CacheSystemBuilder {
         tiers.sort_by_key(|(_, config)| config.tier_level);
 
         // Convert to CacheTier instances
-        let cache_tiers: Vec<CacheTier> = tiers
+        let cache_tiers: Vec<CacheLevel> = tiers
             .into_iter()
             .map(|(backend, config)| {
-                CacheTier::new(
+                CacheLevel::new(
                     backend,
                     config.tier_level,
                     config.promotion_enabled,
@@ -332,7 +332,7 @@ impl CacheSystemBuilder {
 
         // Create cache manager with multi-tier support
         let cache_manager = Arc::new(
-            CacheManager::new_with_tiers(
+            CacheManager::new_with_levels(
                 cache_tiers,
                 self.invalidation_system,
                 self.streaming_backend,

@@ -4,12 +4,12 @@
 //!
 //! Run with: cargo run --example `redis_streams`
 
-use multi_tier_cache::CacheSystem;
+use multi_level_cache::CacheSystem;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("=== Multi-Tier Cache: Redis Streams ===\n");
+    println!("=== Multi-Level Cache: Redis Streams ===\n");
 
     // Initialize cache system
     let cache = CacheSystem::new().await?;

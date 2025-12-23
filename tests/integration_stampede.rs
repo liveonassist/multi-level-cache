@@ -5,7 +5,7 @@
 mod common;
 
 use common::*;
-use multi_tier_cache::{CacheBackend, CacheStrategy};
+use multi_level_cache::CacheStrategy;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use tokio::task::JoinSet;

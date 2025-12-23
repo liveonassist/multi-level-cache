@@ -4,7 +4,7 @@
 //!
 //! Run with: cargo run --example `health_monitoring`
 
-use multi_tier_cache::CacheSystem;
+use multi_level_cache::CacheSystem;
 use std::time::Duration;
 
 #[tokio::main]

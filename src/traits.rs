@@ -14,7 +14,7 @@
 //! # Example: Custom L1 Backend
 //!
 //! ```rust,ignore
-//! use multi_tier_cache::{CacheBackend, async_trait};
+//! use multi_level_cache::{CacheBackend, async_trait};
 //! use std::time::Duration;
 //! use anyhow::Result;
 //!
@@ -178,7 +178,7 @@ pub trait CacheBackend: Send + Sync {
 /// # Example
 ///
 /// ```rust,ignore
-/// use multi_tier_cache::{StreamingBackend, async_trait};
+/// use multi_level_cache::{StreamingBackend, async_trait};
 ///
 /// #[async_trait]
 /// impl StreamingBackend for MyStreamingCache {

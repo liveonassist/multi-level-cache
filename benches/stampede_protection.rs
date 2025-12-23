@@ -1,8 +1,8 @@
 //! Benchmarks for cache stampede protection
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use multi_tier_cache::backends::redis::RedisCache;
-use multi_tier_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder};
+use multi_level_cache::backends::redis::RedisCache;
+use multi_level_cache::{CacheStrategy, CacheSystem, CacheSystemBuilder};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
